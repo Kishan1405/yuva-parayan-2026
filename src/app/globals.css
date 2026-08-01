@@ -16,10 +16,12 @@
   --gold: #d4a017;
   --maroon: #7a2e1d;
 
-  --glass-bg: rgba(255, 255, 255, 0.6);
-  --glass-bg-strong: rgba(255, 255, 255, 0.78);
-  --glass-border: rgba(255, 255, 255, 0.6);
-  --glass-shadow: rgba(122, 46, 29, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-bg-strong: rgba(255, 255, 255, 0.85);
+  /* Warm-toned, not white — a white border on an off-white page is invisible,
+     which is what made stacked cards look like they were touching. */
+  --glass-border: rgba(122, 46, 29, 0.14);
+  --glass-shadow: rgba(122, 46, 29, 0.14);
 
   --nav-bg: rgba(255, 255, 255, 0.8);
 }

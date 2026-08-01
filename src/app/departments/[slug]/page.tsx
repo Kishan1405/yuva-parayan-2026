@@ -84,7 +84,7 @@ export default function DepartmentDetailPage() {
       {inCharge.length > 0 && (
         <div>
           <h2 className="mb-3 font-display text-base font-semibold">In-charge</h2>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {inCharge.map((m) => (
               <MemberRow key={m.id} member={m} />
             ))}
@@ -95,7 +95,7 @@ export default function DepartmentDetailPage() {
       {regular.length > 0 && (
         <div>
           <h2 className="mb-3 font-display text-base font-semibold">Members</h2>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {regular.map((m) => (
               <MemberRow key={m.id} member={m} />
             ))}

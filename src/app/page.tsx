@@ -119,7 +119,7 @@ export default function HomePage() {
 
       <div>
         <h2 className="mb-3 font-display text-base font-semibold">Schedule</h2>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {EVENT_DAYS.map((d) => (
             <GlassCard
               key={d.day}

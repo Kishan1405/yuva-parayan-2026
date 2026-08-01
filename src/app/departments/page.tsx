@@ -29,7 +29,7 @@ export default function DepartmentsPage() {
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {departments === null &&
           [0, 1, 2, 3].map((i) => (
             <div key={i} className="glass-card h-20 animate-pulse rounded-3xl" />
