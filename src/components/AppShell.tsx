@@ -51,12 +51,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 pb-28 pt-6 md:px-6 md:pb-12 md:pt-8">
+      <main className="mx-auto w-full max-w-4xl flex-1 px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] md:px-6 md:pb-12 md:pt-8">
         {children}
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="glass-nav fixed inset-x-3 bottom-3 z-40 rounded-3xl px-2 py-2 md:hidden">
+      <nav className="glass-nav fixed inset-x-3 z-40 rounded-3xl px-2 py-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden">
         <div className="flex items-center justify-between">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href);
