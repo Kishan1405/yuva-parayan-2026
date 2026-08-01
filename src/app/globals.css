@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+
+  /* Off-white base + saffron/orange spiritual palette (light mode) */
+  --background: #fbf4ea;
+  --background-elevated: #fffdf9;
+  --foreground: #2c1c10;
+  --foreground-muted: #6b5644;
+
+  --saffron: #ff9933;
+  --saffron-deep: #e8641c;
+  --saffron-soft: #ffb066;
+  --gold: #d4a017;
+  --maroon: #7a2e1d;
+
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-shadow: rgba(122, 46, 29, 0.12);
+
+  --nav-bg: rgba(255, 250, 243, 0.75);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #1c130c;
+  --background-elevated: #241a11;
+  --foreground: #f6ece0;
+  --foreground-muted: #cbb6a3;
+
+  --saffron: #ff9d3d;
+  --saffron-deep: #ff8130;
+  --saffron-soft: #ffb066;
+  --gold: #e8b93a;
+  --maroon: #d97a5c;
+
+  --glass-bg: rgba(46, 32, 21, 0.55);
+  --glass-bg-strong: rgba(46, 32, 21, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: rgba(0, 0, 0, 0.35);
+
+  --nav-bg: rgba(28, 19, 12, 0.75);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-background-elevated: var(--background-elevated);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-saffron: var(--saffron);
+  --color-saffron-deep: var(--saffron-deep);
+  --color-saffron-soft: var(--saffron-soft);
+  --color-gold: var(--gold);
+  --color-maroon: var(--maroon);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+/* Soft saffron glow behind content, gives the off-white background depth */
+.bg-spiritual {
+  background:
+    radial-gradient(circle at 15% -10%, color-mix(in srgb, var(--saffron) 22%, transparent), transparent 55%),
+    radial-gradient(circle at 110% 10%, color-mix(in srgb, var(--gold) 18%, transparent), transparent 50%),
+    var(--background);
+}
+
+.glass-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px var(--glass-shadow);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+
+.glass-card-strong {
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px var(--glass-shadow);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+
+.glass-nav {
+  background: var(--nav-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+
+.text-gradient-saffron {
+  background: linear-gradient(135deg, var(--saffron-deep), var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
