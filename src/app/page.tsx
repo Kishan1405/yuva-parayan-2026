@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Images, Users, HeartHandshake, UserRound, MapPin, QrCode } from "lucide-react";
+import { Images, Users, HeartHandshake, UserRound, MapPin, QrCode, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
 import {
@@ -56,7 +56,21 @@ export default function HomePage() {
     <div className="space-y-6">
       <div>
         <p className="text-sm text-foreground-muted">Jai Swaminarayan{firstName ? "," : ""}</p>
-        <h1 className="font-display text-2xl font-semibold">{firstName || "Welcome"}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="font-display text-2xl font-semibold">{firstName || "Welcome"}</h1>
+          {user && (
+            <span
+              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                user.role === "user"
+                  ? "bg-foreground/5 text-foreground-muted"
+                  : "bg-saffron-deep/15 text-saffron-deep"
+              }`}
+            >
+              {user.role !== "user" && <ShieldCheck size={11} />}
+              {user.role.replace("_", " ")}
+            </span>
+          )}
+        </div>
       </div>
 
       <GlassCard strong className="relative overflow-hidden">
