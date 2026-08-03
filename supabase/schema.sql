@@ -189,6 +189,20 @@ as $$
   where u.device_token = p_device_token;
 $$;
 
+-- Public roster lookup — anyone can see who's in a department (name +
+-- contact only). Not admin-gated: attendees see this on the Departments page.
+create or replace function get_department_roster(p_department_id uuid)
+returns table (name text, contact_number text, department_role text)
+language sql
+security definer
+set search_path = public
+as $$
+  select u.name, u.contact_number, u.department_role
+  from users u
+  where u.department_id = p_department_id
+  order by (u.department_role = 'in-charge') desc, u.name;
+$$;
+
 -- ---------- admin-only functions ----------
 -- None of these return `device_token` for anyone but the caller themself —
 -- returning it for other users would hand out their session credential.
@@ -343,6 +357,7 @@ grant execute on function signup_user(text, text, uuid) to anon, authenticated;
 grant execute on function get_user_by_token(uuid) to anon, authenticated;
 grant execute on function update_own_profile(uuid, text, text, uuid) to anon, authenticated;
 grant execute on function get_my_attendance(uuid) to anon, authenticated;
+grant execute on function get_department_roster(uuid) to anon, authenticated;
 grant execute on function admin_search_people(uuid, text) to anon, authenticated;
 grant execute on function admin_assign_department(uuid, uuid, uuid, text) to anon, authenticated;
 grant execute on function admin_set_role(uuid, uuid, text) to anon, authenticated;

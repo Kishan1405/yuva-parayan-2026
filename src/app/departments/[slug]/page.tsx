@@ -5,13 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Phone, Star } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { GlassCard } from "@/components/ui/GlassCard";
-import type { Department, DepartmentMember, DepartmentTask } from "@/lib/database.types";
+import type { Department, DepartmentRosterEntry, DepartmentTask } from "@/lib/database.types";
 
 export default function DepartmentDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const [department, setDepartment] = useState<Department | null | undefined>(undefined);
-  const [members, setMembers] = useState<DepartmentMember[]>([]);
+  const [members, setMembers] = useState<DepartmentRosterEntry[]>([]);
   const [tasks, setTasks] = useState<DepartmentTask[]>([]);
 
   useEffect(() => {
@@ -24,19 +24,11 @@ export default function DepartmentDetailPage() {
         setDepartment(data ?? null);
         if (!data) return;
 
-        const [membersRes, tasksRes] = await Promise.all([
-          supabase
-            .from("department_members")
-            .select("*")
-            .eq("department_id", data.id)
-            .order("sort_order"),
-          supabase
-            .from("department_tasks")
-            .select("*")
-            .eq("department_id", data.id)
-            .order("sort_order"),
+        const [rosterRes, tasksRes] = await Promise.all([
+          supabase.rpc("get_department_roster", { p_department_id: data.id }),
+          supabase.from("department_tasks").select("*").eq("department_id", data.id).order("sort_order"),
         ]);
-        setMembers(membersRes.data ?? []);
+        setMembers(rosterRes.data ?? []);
         setTasks(tasksRes.data ?? []);
       });
   }, [slug]);
@@ -61,8 +53,8 @@ export default function DepartmentDetailPage() {
     );
   }
 
-  const inCharge = members.filter((m) => m.role === "in-charge");
-  const regular = members.filter((m) => m.role !== "in-charge");
+  const inCharge = members.filter((m) => m.department_role === "in-charge");
+  const regular = members.filter((m) => m.department_role !== "in-charge");
 
   return (
     <div className="space-y-6">
@@ -86,7 +78,7 @@ export default function DepartmentDetailPage() {
           <h2 className="mb-3 font-display text-base font-semibold">In-charge</h2>
           <div className="space-y-4">
             {inCharge.map((m) => (
-              <MemberRow key={m.id} member={m} />
+              <MemberRow key={m.contact_number} member={m} />
             ))}
           </div>
         </div>
@@ -97,7 +89,7 @@ export default function DepartmentDetailPage() {
           <h2 className="mb-3 font-display text-base font-semibold">Members</h2>
           <div className="space-y-4">
             {regular.map((m) => (
-              <MemberRow key={m.id} member={m} />
+              <MemberRow key={m.contact_number} member={m} />
             ))}
           </div>
         </div>
@@ -105,7 +97,7 @@ export default function DepartmentDetailPage() {
 
       {members.length === 0 && (
         <GlassCard className="text-center text-sm text-foreground-muted">
-          No members listed yet.
+          No members assigned yet.
         </GlassCard>
       )}
 
@@ -144,7 +136,7 @@ export default function DepartmentDetailPage() {
   );
 }
 
-function MemberRow({ member }: { member: DepartmentMember }) {
+function MemberRow({ member }: { member: DepartmentRosterEntry }) {
   return (
     <GlassCard className="flex items-center justify-between py-3">
       <div className="flex items-center gap-3">
@@ -153,7 +145,7 @@ function MemberRow({ member }: { member: DepartmentMember }) {
         </div>
         <div>
           <p className="text-sm font-medium">{member.name}</p>
-          {member.role === "in-charge" && (
+          {member.department_role === "in-charge" && (
             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-saffron-deep">
               <Star size={11} /> In-charge
             </span>

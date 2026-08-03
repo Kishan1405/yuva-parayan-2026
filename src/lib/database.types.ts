@@ -70,6 +70,12 @@ export type Attendance = {
   scanned_by: string | null;
 };
 
+export type DepartmentRosterEntry = {
+  name: string;
+  contact_number: string;
+  department_role: MemberRole;
+};
+
 export type AttendanceMarkResult = {
   attendance_id: string;
   target_user_id: string;
@@ -135,6 +141,7 @@ export type Database = {
         AppUser
       >;
       get_my_attendance: Fn<{ p_device_token: string }, Attendance[]>;
+      get_department_roster: Fn<{ p_department_id: string }, DepartmentRosterEntry[]>;
       // NOTE: these all use `returns table(...)` in SQL, so PostgREST always
       // wraps the result in an array — even ones that only ever produce one
       // row. lib/admin.ts unwraps that for callers.
