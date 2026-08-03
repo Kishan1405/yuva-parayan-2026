@@ -44,7 +44,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.rpc("get_user_by_token", {
       p_device_token: token,
     });
-    if (error || !data) {
+    // A "not found" composite comes back as an object with every field
+    // null (not a bare null) — check a required field, not just truthiness.
+    if (error || !data || !data.id) {
       localStorage.removeItem(STORAGE_KEY);
       setUser(null);
       setDeviceToken(null);
