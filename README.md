@@ -1,6 +1,6 @@
 # Yuva Parayan 2026 — Event Companion App
 
-Mobile-first web app for Yuva Parayan 2026 (7–9 August 2026). Built with Next.js
+Mobile-first web app for Yuva Parayan 2026 (6–8 August 2026). Built with Next.js
 (App Router) + Tailwind CSS + Supabase.
 
 Everyone signs up with name, contact number, and Mandal. There's no password —

@@ -78,7 +78,7 @@ export default function HomePage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-saffron-deep">
             {EVENT_NAME}
           </p>
-          <p className="mt-1 font-display text-xl font-semibold">7–9 August 2026</p>
+          <p className="mt-1 font-display text-xl font-semibold">6–8 August 2026</p>
 
           {phase === "upcoming" && (
             <p className="mt-2 text-sm text-foreground-muted">

@@ -7,9 +7,9 @@ export interface EventDay {
 }
 
 export const EVENT_DAYS: EventDay[] = [
-  { day: 1, date: "2026-08-07", label: "Day 1 · Fri, 7 Aug 2026" },
-  { day: 2, date: "2026-08-08", label: "Day 2 · Sat, 8 Aug 2026" },
-  { day: 3, date: "2026-08-09", label: "Day 3 · Sun, 9 Aug 2026" },
+  { day: 1, date: "2026-08-06", label: "Day 1 · Thu, 6 Aug 2026" },
+  { day: 2, date: "2026-08-07", label: "Day 2 · Fri, 7 Aug 2026" },
+  { day: 3, date: "2026-08-08", label: "Day 3 · Sat, 8 Aug 2026" },
 ];
 
 // Local calendar date as YYYY-MM-DD, so the gate flips at local midnight.

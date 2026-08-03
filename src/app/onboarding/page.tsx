@@ -69,7 +69,7 @@ export default function OnboardingPage() {
           <h1 className="font-display text-2xl font-semibold text-gradient-saffron">
             {EVENT_NAME}
           </h1>
-          <p className="mt-1 text-sm text-foreground-muted">7–9 August 2026</p>
+          <p className="mt-1 text-sm text-foreground-muted">6–8 August 2026</p>
         </div>
 
         <GlassCard strong>
