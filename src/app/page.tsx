@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Images, Users, HeartHandshake, UserRound, MapPin } from "lucide-react";
+import { Images, Users, HeartHandshake, UserRound, MapPin, QrCode } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
 import {
@@ -16,6 +16,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import type { Department, Mandal } from "@/lib/database.types";
 
 const QUICK_LINKS = [
+  { href: "/attendance", label: "Attendance", icon: QrCode, blurb: "Your check-in QR code" },
   { href: "/memories", label: "Past Memories", icon: Images, blurb: "Relive past gatherings" },
   { href: "/departments", label: "Departments", icon: Users, blurb: "Sangeet, Prasad & more" },
   { href: "/reflect", label: "Reflect", icon: HeartHandshake, blurb: "Feedback & memory wall" },
@@ -105,15 +106,27 @@ export default function HomePage() {
       <div>
         <h2 className="mb-3 font-display text-base font-semibold">Explore</h2>
         <div className="grid grid-cols-2 gap-3">
-          {QUICK_LINKS.map(({ href, label, icon: Icon, blurb }) => (
-            <Link key={href} href={href}>
-              <GlassCard className="h-full transition hover:brightness-105">
-                <Icon className="text-saffron-deep" size={22} />
-                <p className="mt-3 font-display text-sm font-semibold">{label}</p>
-                <p className="mt-0.5 text-xs text-foreground-muted">{blurb}</p>
-              </GlassCard>
-            </Link>
-          ))}
+          {QUICK_LINKS.map(({ href, label, icon: Icon, blurb }, i) =>
+            i === 0 ? (
+              <Link key={href} href={href} className="col-span-2">
+                <GlassCard className="flex items-center gap-3 transition hover:brightness-105">
+                  <Icon className="text-saffron-deep" size={22} />
+                  <div>
+                    <p className="font-display text-sm font-semibold">{label}</p>
+                    <p className="mt-0.5 text-xs text-foreground-muted">{blurb}</p>
+                  </div>
+                </GlassCard>
+              </Link>
+            ) : (
+              <Link key={href} href={href}>
+                <GlassCard className="h-full transition hover:brightness-105">
+                  <Icon className="text-saffron-deep" size={22} />
+                  <p className="mt-3 font-display text-sm font-semibold">{label}</p>
+                  <p className="mt-0.5 text-xs text-foreground-muted">{blurb}</p>
+                </GlassCard>
+              </Link>
+            )
+          )}
         </div>
       </div>
 

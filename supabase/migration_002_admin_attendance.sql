@@ -1,132 +1,48 @@
--- Yuva Parayan 2026 — schema for Supabase (run once in the SQL editor)
+-- Yuva Parayan 2026 — Phase 2: admin roles, department assignment, attendance
+-- Run once in the Supabase SQL editor (safe to re-run — uses IF EXISTS/OR REPLACE).
 --
--- There is no real login (by design — see README). Attendees are
--- identified by a random device_token held in the browser. Admin/scanner
--- privilege checks happen inside the SECURITY DEFINER functions at the
--- bottom of this file, which re-verify the caller's role by their
--- device_token before doing anything — the `users` table itself has zero
--- direct anon access, so a regular attendee can't self-promote or dump
--- everyone's contact info from devtools.
---
--- Fresh install: run this whole file once.
--- Existing project (already ran phase 1 schema): run
--- supabase/migration_002_admin_attendance.sql instead.
+-- Design note: there is still no real login for admins (by choice — see chat).
+-- Every privileged action below is a Postgres function that re-checks the
+-- caller's role by their device_token *inside the database* before doing
+-- anything, so a regular attendee can't grant themselves admin or read the
+-- full contact list by calling Supabase directly from devtools. The `users`
+-- table itself is locked to zero direct anon access — everything goes
+-- through these functions instead.
 
-create extension if not exists pgcrypto;
+-- ---------- schema changes ----------
 
--- ---------- reference / admin-managed content ----------
+alter table users add column if not exists role text not null default 'user';
+alter table users drop constraint if exists users_role_check;
+alter table users add constraint users_role_check check (role in ('user','scanner','admin','super_admin'));
 
-create table mandals (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  sort_order int not null default 0
-);
+alter table users add column if not exists department_role text not null default 'member';
+alter table users drop constraint if exists users_department_role_check;
+alter table users add constraint users_department_role_check check (department_role in ('member','in-charge'));
 
-create table departments (
-  id uuid primary key default gen_random_uuid(),
-  slug text unique not null,
-  name text not null,
-  description text,
-  sort_order int not null default 0
-);
-
-create table department_members (
-  id uuid primary key default gen_random_uuid(),
-  department_id uuid references departments(id) on delete cascade,
-  name text not null,
-  role text not null default 'member', -- 'in-charge' | 'member'
-  contact_number text,
-  sort_order int not null default 0
-);
-
-create table department_tasks (
-  id uuid primary key default gen_random_uuid(),
-  department_id uuid references departments(id) on delete cascade,
-  title text not null,
-  is_done boolean not null default false,
-  sort_order int not null default 0
-);
-
-create table feedback_questions (
-  id uuid primary key default gen_random_uuid(),
-  question_text text not null,
-  question_type text not null default 'rating', -- 'rating' | 'text'
-  sort_order int not null default 0
-);
-
--- ---------- user data ----------
-
-create table users (
-  id uuid primary key default gen_random_uuid(),
-  device_token uuid unique not null default gen_random_uuid(),
-  name text not null,
-  contact_number text not null,
-  mandal_id uuid references mandals(id),
-  department_id uuid references departments(id),
-  department_role text not null default 'member' check (department_role in ('member', 'in-charge')),
-  role text not null default 'user' check (role in ('user', 'scanner', 'admin', 'super_admin')),
-  created_at timestamptz not null default now()
-);
-
-create table attendance (
+create table if not exists attendance (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,
-  day smallint not null check (day in (1, 2, 3)),
+  day smallint not null check (day in (1,2,3)),
   scanned_at timestamptz not null default now(),
   scanned_by uuid references users(id) on delete set null,
   unique (user_id, day)
 );
 
-create table feedback_responses (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references users(id) on delete cascade,
-  question_id uuid references feedback_questions(id) on delete cascade,
-  day smallint not null, -- 1, 2, 3
-  rating smallint,
-  answer_text text,
-  created_at timestamptz not null default now(),
-  unique (user_id, question_id, day)
-);
-
-create table wall_posts (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references users(id) on delete set null,
-  author_name text not null,
-  content text not null,
-  created_at timestamptz not null default now()
-);
-
--- ---------- row level security ----------
-
-alter table mandals enable row level security;
-alter table departments enable row level security;
-alter table department_members enable row level security;
-alter table department_tasks enable row level security;
-alter table feedback_questions enable row level security;
-alter table users enable row level security;
 alter table attendance enable row level security;
-alter table feedback_responses enable row level security;
-alter table wall_posts enable row level security;
+-- No anon policies on purpose — attendance is reachable only through the
+-- functions below (or directly by you in the Supabase table editor).
 
--- public read-only reference content
-create policy "public read mandals" on mandals for select using (true);
-create policy "public read departments" on departments for select using (true);
-create policy "public read department_members" on department_members for select using (true);
-create policy "public read department_tasks" on department_tasks for select using (true);
-create policy "public read feedback_questions" on feedback_questions for select using (true);
+-- ---------- lock down direct anon access to `users` ----------
+-- Phase 1 had "anyone can read/update users" policies. That let any browser
+-- dump every attendee's name+phone, or self-promote their own role, via
+-- devtools. Remove them; RLS stays enabled with zero anon policies, so the
+-- table itself becomes unreachable directly. All access below goes through
+-- SECURITY DEFINER functions, which run as the table owner and bypass RLS
+-- internally, but only ever return the specific fields each is written to.
 
--- users & attendance: intentionally NO anon policies here. RLS is enabled
--- with zero grants, so direct table access is fully blocked for the public
--- client. All access goes through the SECURITY DEFINER functions below.
-
--- feedback: submit + read own (app filters by user_id client-side)
-create policy "anyone can submit feedback" on feedback_responses for insert with check (true);
-create policy "anyone can update own feedback" on feedback_responses for update using (true);
-create policy "anyone can read feedback" on feedback_responses for select using (true);
-
--- wall: public feed, anyone can post, no edit/delete from client
-create policy "anyone can read wall" on wall_posts for select using (true);
-create policy "anyone can post to wall" on wall_posts for insert with check (true);
+drop policy if exists "anyone can sign up" on users;
+drop policy if exists "anyone can read users" on users;
+drop policy if exists "anyone can update users" on users;
 
 -- ---------- self-service functions (any signed-up user, incl. anonymous signup) ----------
 
@@ -348,22 +264,10 @@ grant execute on function admin_assign_department(uuid, uuid, uuid, text) to ano
 grant execute on function admin_set_role(uuid, uuid, text) to anon, authenticated;
 grant execute on function attendance_mark(uuid, uuid, smallint) to anon, authenticated;
 
--- ---------- seed data ----------
-
-insert into mandals (name, sort_order) values
-  ('Mandal 1', 1),
-  ('Mandal 2', 2),
-  ('Mandal 3', 3);
-
-insert into departments (slug, name, description, sort_order) values
-  ('sangeet', 'Sangeet', 'Music and bhajan seva', 1),
-  ('sabha-vyavastha', 'Sabha Vyavastha', 'Hall and seating arrangements', 2),
-  ('parayan-pujan', 'Parayan Pujan', 'Parayan and pujan vidhi', 3),
-  ('prasad', 'Prasad', 'Prasad preparation and distribution', 4);
-
-insert into feedback_questions (question_text, question_type, sort_order) values
-  ('How would you rate today overall?', 'rating', 1),
-  ('How would you rate the Sabha / Parayan session?', 'rating', 2),
-  ('How would you rate the Prasad and arrangements?', 'rating', 3),
-  ('What did you enjoy most about today?', 'text', 4),
-  ('Any suggestions for tomorrow?', 'text', 5);
+-- ---------- bootstrap your own account as the first super_admin ----------
+-- Run this ONE TIME after you've signed up in the app normally (so your row
+-- already exists). Replace the number with the exact contact number you
+-- used to sign up. After this, do all further admin promotions from inside
+-- the app (People page -> toggle) — you won't need SQL again.
+--
+update users set role = 'super_admin' where contact_number = '9033092446';

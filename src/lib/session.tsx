@@ -21,11 +21,14 @@ interface SignUpInput {
 
 interface SessionContextValue {
   user: AppUser | null;
+  deviceToken: string | null;
   loading: boolean;
   signUp: (input: SignUpInput) => Promise<{ error: string | null }>;
-  updateProfile: (
-    input: Partial<Pick<AppUser, "name" | "contact_number" | "mandal_id">>
-  ) => Promise<{ error: string | null }>;
+  updateProfile: (input: {
+    name: string;
+    contact_number: string;
+    mandal_id: string;
+  }) => Promise<{ error: string | null }>;
   refresh: () => Promise<void>;
   forgetDevice: () => void;
 }
@@ -34,20 +37,21 @@ const SessionContext = createContext<SessionContextValue | undefined>(undefined)
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
+  const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadFromToken = useCallback(async (token: string) => {
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("device_token", token)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc("get_user_by_token", {
+      p_device_token: token,
+    });
     if (error || !data) {
       localStorage.removeItem(STORAGE_KEY);
       setUser(null);
+      setDeviceToken(null);
       return;
     }
-    setUser(data as AppUser);
+    setUser(data);
+    setDeviceToken(token);
   }, []);
 
   useEffect(() => {
@@ -66,52 +70,50 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [loadFromToken]);
 
   const signUp = useCallback(async (input: SignUpInput) => {
-    const { data, error } = await supabase
-      .from("users")
-      .insert({
-        name: input.name.trim(),
-        contact_number: input.contact_number.trim(),
-        mandal_id: input.mandal_id,
-      })
-      .select("*")
-      .single();
+    const { data, error } = await supabase.rpc("signup_user", {
+      p_name: input.name.trim(),
+      p_contact_number: input.contact_number.trim(),
+      p_mandal_id: input.mandal_id,
+    });
 
     if (error || !data) {
       return { error: error?.message ?? "Could not create your account. Please try again." };
     }
 
     localStorage.setItem(STORAGE_KEY, data.device_token);
-    setUser(data as AppUser);
+    setUser(data);
+    setDeviceToken(data.device_token);
     return { error: null };
   }, []);
 
   const updateProfile = useCallback(
-    async (input: Partial<Pick<AppUser, "name" | "contact_number" | "mandal_id">>) => {
-      if (!user) return { error: "Not signed in." };
-      const { data, error } = await supabase
-        .from("users")
-        .update(input)
-        .eq("id", user.id)
-        .select("*")
-        .single();
+    async (input: { name: string; contact_number: string; mandal_id: string }) => {
+      if (!deviceToken) return { error: "Not signed in." };
+      const { data, error } = await supabase.rpc("update_own_profile", {
+        p_device_token: deviceToken,
+        p_name: input.name.trim(),
+        p_contact_number: input.contact_number.trim(),
+        p_mandal_id: input.mandal_id,
+      });
 
       if (error || !data) {
         return { error: error?.message ?? "Could not update your profile." };
       }
-      setUser(data as AppUser);
+      setUser(data);
       return { error: null };
     },
-    [user]
+    [deviceToken]
   );
 
   const forgetDevice = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setUser(null);
+    setDeviceToken(null);
   }, []);
 
   return (
     <SessionContext.Provider
-      value={{ user, loading, signUp, updateProfile, refresh, forgetDevice }}
+      value={{ user, deviceToken, loading, signUp, updateProfile, refresh, forgetDevice }}
     >
       {children}
     </SessionContext.Provider>

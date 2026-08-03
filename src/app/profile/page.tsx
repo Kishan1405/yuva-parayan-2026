@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogOut, Pencil, Users } from "lucide-react";
+import Link from "next/link";
+import { LogOut, Pencil, ShieldCheck, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
+import { canScan } from "@/lib/admin";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Label, Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
@@ -143,6 +145,24 @@ export default function ProfilePage() {
             </Button>
           </div>
         </GlassCard>
+      )}
+
+      {canScan(user.role) && (
+        <Link href="/admin">
+          <GlassCard className="flex items-center justify-between transition hover:brightness-105">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-saffron-deep/12">
+                <ShieldCheck className="text-saffron-deep" size={18} />
+              </div>
+              <div>
+                <p className="font-display text-sm font-semibold">Admin Panel</p>
+                <p className="text-xs text-foreground-muted">
+                  {user.role.replace("_", " ")} access
+                </p>
+              </div>
+            </div>
+          </GlassCard>
+        </Link>
       )}
 
       <button

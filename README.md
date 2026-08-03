@@ -16,10 +16,22 @@ the browser holds a private device token that identifies the account (see
 - **Reflect** — per-day feedback form (unlocks on that day) + a shared public
   wall for memories/values gained
 - **Past Memories** — photo gallery pulled live from a Google Drive folder
-- **Profile** — view/edit your own details
+- **Profile** — view/edit your own details, admin panel entry point (if applicable)
+- **Attendance** — a personal QR code, plus your own per-day check-in status
 
-Admin module (editing departments, tasks, questions, Mandals) is phase 2 — not
-built yet. Until then, edit that content directly in the Supabase table editor.
+## Modules (admin side, phase 2)
+
+Reachable at `/admin` — only visible/usable to accounts with an elevated
+`role` (see "How admin access works" below).
+
+- **People** — search everyone, grouped by Mandal; assign/remove someone's
+  department + seva role (member/in-charge); `super_admin` can also set
+  anyone's access level (user/scanner/admin/super_admin)
+- **Scan Attendance** — camera-based QR scanner, per-day, records a check-in
+  against the scanned person's account
+
+Editing departments/tasks/feedback questions/Mandals themselves still happens
+directly in the Supabase table editor — not built into the admin UI yet.
 
 ## One-time setup
 
@@ -27,10 +39,14 @@ built yet. Until then, edit that content directly in the Supabase table editor.
 
 1. Create a free project at [supabase.com](https://supabase.com).
 2. Open the SQL editor and run [`supabase/schema.sql`](supabase/schema.sql) —
-   this creates all tables, RLS policies, and seed data (3 placeholder
-   Mandals, the 4 departments, 5 placeholder feedback questions).
+   this creates all tables, RLS policies, seed data (3 placeholder Mandals,
+   the 4 departments, 5 placeholder feedback questions), the roles/attendance
+   schema, and the admin functions.
+   - Already ran phase 1's `schema.sql` on an existing project? Run
+     [`supabase/migration_002_admin_attendance.sql`](supabase/migration_002_admin_attendance.sql)
+     instead — it adds only what's new.
 3. In **Project Settings → API**, copy the **Project URL** and **anon public
-   key**.
+   key** (also called "Publishable key" in newer Supabase projects).
 4. Copy `.env.local.example` to `.env.local` and paste them in:
    ```
    NEXT_PUBLIC_SUPABASE_URL=...
@@ -74,6 +90,32 @@ Signup creates a random, unguessable `device_token` stored in the browser's
 you back in automatically. Clearing browser data or switching devices means
 signing up again as a new account. This trade-off was chosen deliberately for
 simplicity; a real login system (OTP/PIN) can replace it later if needed.
+
+## How admin access works (by design)
+
+Same idea as attendee login — no separate admin login page, no extra
+password. Every account has a `role` column (`user` / `scanner` / `admin` /
+`super_admin`). The catch: a regular attendee's browser can't just set its
+own `role` to `admin` via devtools, because the `users` table has **zero**
+direct read/write access for the public client — every privileged action
+(viewing the full contact list, assigning departments, changing anyone's
+role, marking attendance) goes through a Postgres function that re-checks
+the caller's actual role, server-side, before doing anything. See the
+comments at the top of `supabase/migration_002_admin_attendance.sql` for the
+full design rationale.
+
+- `user` — everyone, by default
+- `scanner` — can only scan attendance (`/admin/scan`), nothing else
+- `admin` — scanner + People directory + department/seva assignment
+- `super_admin` — admin + can grant/revoke anyone's role (including other
+  admins), from the People page in the app
+
+**Bootstrapping the first admin** is the one piece that still needs raw SQL,
+since nobody has admin rights yet on a fresh project — see the commented-out
+`update users set role = 'super_admin' where contact_number = '...'` line at
+the bottom of the migration file. Run it once, with your own number, after
+you've signed up in the app. Every admin promotion after that happens from
+the People page — no more SQL needed.
 
 ## Deploying
 
