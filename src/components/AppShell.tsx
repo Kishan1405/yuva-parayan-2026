@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Images, Users, HeartHandshake, UserRound } from "lucide-react";
 import { EVENT_NAME } from "@/lib/event";
+import { useSession } from "@/lib/session";
+import { canManagePeople } from "@/lib/admin";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/memories", label: "Memories", icon: Images },
-  { href: "/departments", label: "Departments", icon: Users },
+  { href: "/departments", label: "Departments", icon: Users, adminOnly: true },
   { href: "/reflect", label: "Reflect", icon: HeartHandshake },
   { href: "/profile", label: "Profile", icon: UserRound },
 ];
@@ -20,6 +22,8 @@ function isActive(pathname: string, href: string) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { user } = useSession();
+  const navItems = NAV_ITEMS.filter((item) => !item.adminOnly || canManagePeople(user?.role));
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -30,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {EVENT_NAME}
           </span>
           <nav className="flex items-center gap-1">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+            {navItems.map(({ href, label, icon: Icon }) => {
               const active = isActive(pathname, href);
               return (
                 <Link
@@ -58,7 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile bottom nav */}
       <nav className="glass-nav fixed inset-x-3 z-40 rounded-3xl px-2 py-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden">
         <div className="flex items-center justify-between">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+          {navItems.map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href);
             return (
               <Link

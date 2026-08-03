@@ -13,18 +13,21 @@ import {
   currentEventDay,
 } from "@/lib/event";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { canManagePeople } from "@/lib/admin";
 import type { Department, Mandal } from "@/lib/database.types";
 
 const QUICK_LINKS = [
   { href: "/attendance", label: "Attendance", icon: QrCode, blurb: "Your check-in QR code" },
   { href: "/memories", label: "Past Memories", icon: Images, blurb: "Relive past gatherings" },
-  { href: "/departments", label: "Departments", icon: Users, blurb: "Sangeet, Prasad & more" },
+  { href: "/departments", label: "Departments", icon: Users, blurb: "Sangeet, Prasad & more", adminOnly: true },
   { href: "/reflect", label: "Reflect", icon: HeartHandshake, blurb: "Feedback & memory wall" },
   { href: "/profile", label: "Profile", icon: UserRound, blurb: "Your details" },
 ];
 
 export default function HomePage() {
   const { user } = useSession();
+  const canBrowseDepartments = canManagePeople(user?.role);
+  const quickLinks = QUICK_LINKS.filter((l) => !l.adminOnly || canBrowseDepartments);
   const [mandal, setMandal] = useState<Mandal | null>(null);
   const [department, setDepartment] = useState<Department | null>(null);
 
@@ -103,9 +106,21 @@ export default function HomePage() {
         </div>
       </GlassCard>
 
-      {department && (
-        <Link href={`/departments/${department.slug}`}>
-          <GlassCard className="flex items-center justify-between transition hover:brightness-105">
+      {department &&
+        (canBrowseDepartments ? (
+          <Link href={`/departments/${department.slug}`}>
+            <GlassCard className="flex items-center justify-between transition hover:brightness-105">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-foreground-muted">
+                  Your seva
+                </p>
+                <p className="font-display text-base font-semibold">{department.name}</p>
+              </div>
+              <Users className="text-saffron-deep" size={22} />
+            </GlassCard>
+          </Link>
+        ) : (
+          <GlassCard className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-foreground-muted">
                 Your seva
@@ -114,13 +129,12 @@ export default function HomePage() {
             </div>
             <Users className="text-saffron-deep" size={22} />
           </GlassCard>
-        </Link>
-      )}
+        ))}
 
       <div>
         <h2 className="mb-3 font-display text-base font-semibold">Explore</h2>
         <div className="grid grid-cols-2 gap-3">
-          {QUICK_LINKS.map(({ href, label, icon: Icon, blurb }, i) =>
+          {quickLinks.map(({ href, label, icon: Icon, blurb }, i) =>
             i === 0 ? (
               <Link key={href} href={href} className="col-span-2">
                 <GlassCard className="flex items-center gap-3 transition hover:brightness-105">
