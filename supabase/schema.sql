@@ -137,7 +137,7 @@ create or replace function signup_user(p_name text, p_contact_number text, p_man
 returns users
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_user users;
@@ -200,7 +200,7 @@ create or replace function set_login_pin(p_device_token uuid, p_pin text)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 begin
   if p_pin !~ '^\d{4,6}$' then
@@ -222,7 +222,7 @@ create or replace function login_with_pin(p_name text, p_contact_number text, p_
 returns users
 language sql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
   select * from users
   where lower(trim(name)) = lower(trim(p_name))
