@@ -1,22 +1,22 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 export function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
+  // No AnimatePresence/exit-wait here on purpose: the new page must mount
+  // and start fetching immediately on navigation, not wait for the old one
+  // to finish animating out first. Just a quick fade-in on the incoming page.
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={pathname}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -6 }}
-        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      key={pathname}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12 }}
+    >
+      {children}
+    </motion.div>
   );
 }
