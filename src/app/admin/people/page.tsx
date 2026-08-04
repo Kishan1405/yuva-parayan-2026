@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ChevronDown, Search, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
 import { searchPeople, assignDepartment, setUserRole, canManageAdmins } from "@/lib/admin";
-import { GlassCard } from "@/components/ui/GlassCard";
+import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
 import { Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import type { AdminPerson, Department, Mandal, MemberRole, UserRole } from "@/lib/database.types";
@@ -129,21 +130,27 @@ export default function AdminPeoplePage() {
         grouped.map(([mandal, list]) => (
           <div key={mandal}>
             <h2 className="mb-3 font-display text-base font-semibold">{mandal}</h2>
-            <div className="space-y-3">
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+              className="space-y-3"
+            >
               {list.map((person) => (
-                <PersonRow
-                  key={person.id}
-                  person={person}
-                  departments={departments}
-                  isOpen={openId === person.id}
-                  onToggle={() => setOpenId(openId === person.id ? null : person.id)}
-                  onAssignDepartment={handleAssignDepartment}
-                  onSetRole={handleSetRole}
-                  canManageAdmins={canManageAdmins(user?.role)}
-                  isSelf={person.id === user?.id}
-                />
+                <motion.div key={person.id} variants={staggerItem}>
+                  <PersonRow
+                    person={person}
+                    departments={departments}
+                    isOpen={openId === person.id}
+                    onToggle={() => setOpenId(openId === person.id ? null : person.id)}
+                    onAssignDepartment={handleAssignDepartment}
+                    onSetRole={handleSetRole}
+                    canManageAdmins={canManageAdmins(user?.role)}
+                    isSelf={person.id === user?.id}
+                  />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         ))}
 
@@ -175,6 +182,7 @@ function PersonRow({
 }) {
   const [deptId, setDeptId] = useState(person.department_id ?? "");
   const [deptRole, setDeptRole] = useState<MemberRole>(person.department_role);
+  const pillId = useId();
 
   useEffect(() => {
     setDeptId(person.department_id ?? "");
@@ -184,8 +192,9 @@ function PersonRow({
   return (
     <div>
       <GlassCard
+        interactive
         onClick={onToggle}
-        className="flex cursor-pointer items-center justify-between py-3.5 transition hover:brightness-105"
+        className="flex cursor-pointer items-center justify-between py-3.5"
       >
         <div>
           <div className="flex items-center gap-2">
@@ -210,67 +219,87 @@ function PersonRow({
         />
       </GlassCard>
 
-      {isOpen && (
-        <GlassCard strong className="mt-2 space-y-4">
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-foreground-muted">Department</p>
-            <Select value={deptId} onChange={(e) => setDeptId(e.target.value)}>
-              <option value="">No department</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          {deptId && (
-            <div>
-              <p className="mb-1.5 text-xs font-medium text-foreground-muted">Seva role</p>
-              <Select
-                value={deptRole}
-                onChange={(e) => setDeptRole(e.target.value as MemberRole)}
-              >
-                <option value="member">Member</option>
-                <option value="in-charge">In-charge</option>
-              </Select>
-            </div>
-          )}
-
-          <Button
-            type="button"
-            className="w-full"
-            onClick={() => onAssignDepartment(person.id, deptId || null, deptRole)}
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
           >
-            Save department
-          </Button>
-
-          {canManageAdmins && (
-            <div className="border-t border-foreground/10 pt-4">
-              <p className="mb-2 text-xs font-medium text-foreground-muted">
-                Admin access {isSelf && "(you)"}
-              </p>
-              <div className="glass-card flex gap-1 rounded-2xl p-1">
-                {ROLE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    disabled={isSelf}
-                    onClick={() => onSetRole(person.id, opt.value)}
-                    className={`flex-1 rounded-xl py-2 text-[11px] font-semibold transition disabled:opacity-40 ${
-                      person.role === opt.value
-                        ? "bg-gradient-to-br from-saffron to-saffron-deep text-white"
-                        : "text-foreground-muted"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+            <GlassCard strong className="mt-2 space-y-4">
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-foreground-muted">Department</p>
+                <Select value={deptId} onChange={(e) => setDeptId(e.target.value)}>
+                  <option value="">No department</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </Select>
               </div>
-            </div>
-          )}
-        </GlassCard>
-      )}
+
+              {deptId && (
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-foreground-muted">Seva role</p>
+                  <Select
+                    value={deptRole}
+                    onChange={(e) => setDeptRole(e.target.value as MemberRole)}
+                  >
+                    <option value="member">Member</option>
+                    <option value="in-charge">In-charge</option>
+                  </Select>
+                </div>
+              )}
+
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => onAssignDepartment(person.id, deptId || null, deptRole)}
+              >
+                Save department
+              </Button>
+
+              {canManageAdmins && (
+                <div className="border-t border-foreground/10 pt-4">
+                  <p className="mb-2 text-xs font-medium text-foreground-muted">
+                    Admin access {isSelf && "(you)"}
+                  </p>
+                  <div className="glass-card flex gap-1 rounded-2xl p-1">
+                    {ROLE_OPTIONS.map((opt) => {
+                      const active = person.role === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          disabled={isSelf}
+                          onClick={() => onSetRole(person.id, opt.value)}
+                          className="relative flex-1 rounded-xl py-2 text-[11px] font-semibold disabled:opacity-40"
+                        >
+                          {active && (
+                            <motion.span
+                              layoutId={`${pillId}-role-pill`}
+                              className="absolute inset-0 rounded-xl bg-gradient-to-br from-saffron to-saffron-deep"
+                              transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                            />
+                          )}
+                          <span
+                            className={`relative z-10 ${active ? "text-white" : "text-foreground-muted"}`}
+                          >
+                            {opt.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </GlassCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

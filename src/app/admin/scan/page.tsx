@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import QrScanner from "qr-scanner";
+import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, CheckCircle2, RotateCcw, XCircle } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { markAttendance } from "@/lib/admin";
 import { EVENT_DAYS, currentEventDay } from "@/lib/event";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
 const QR_PREFIX = "YP2026:";
 const RESUME_DELAY_MS = 1200;
@@ -101,22 +103,11 @@ export default function ScanAttendancePage() {
         <p className="mt-1 text-sm text-foreground-muted">Point the camera at an attendee&apos;s QR code.</p>
       </div>
 
-      <div className="glass-card flex gap-1 rounded-2xl p-1">
-        {EVENT_DAYS.map((d) => (
-          <button
-            key={d.day}
-            type="button"
-            onClick={() => setDay(d.day)}
-            className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition ${
-              day === d.day
-                ? "bg-gradient-to-br from-saffron to-saffron-deep text-white shadow-md shadow-saffron-deep/20"
-                : "text-foreground-muted"
-            }`}
-          >
-            Day {d.day}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        options={EVENT_DAYS.map((d) => ({ value: String(d.day), label: `Day ${d.day}` }))}
+        value={String(day)}
+        onChange={(v) => setDay(Number(v) as 1 | 2 | 3)}
+      />
 
       <GlassCard strong className="overflow-hidden p-0">
         <div className="relative aspect-square w-full bg-black">
@@ -137,17 +128,32 @@ export default function ScanAttendancePage() {
           <p className="py-6 text-center text-sm text-foreground-muted">No scans yet.</p>
         ) : (
           <div className="space-y-3">
-            {results.map((r) => (
-              <GlassCard key={r.id} className="flex items-center gap-3 py-3">
-                {r.status === "ok" && <CheckCircle2 className="shrink-0 text-saffron-deep" size={20} />}
-                {r.status === "duplicate" && <RotateCcw className="shrink-0 text-gold" size={20} />}
-                {r.status === "error" && <XCircle className="shrink-0 text-red-500" size={20} />}
-                <div>
-                  <p className="text-sm font-semibold">{r.name}</p>
-                  <p className="text-xs text-foreground-muted">{r.message}</p>
-                </div>
-              </GlassCard>
-            ))}
+            <AnimatePresence initial={false}>
+              {results.map((r) => (
+                <motion.div
+                  key={r.id}
+                  layout
+                  initial={{ opacity: 0, y: -16, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                >
+                  <GlassCard className="flex items-center gap-3 py-3">
+                    {r.status === "ok" && (
+                      <CheckCircle2 className="shrink-0 text-saffron-deep" size={20} />
+                    )}
+                    {r.status === "duplicate" && (
+                      <RotateCcw className="shrink-0 text-gold" size={20} />
+                    )}
+                    {r.status === "error" && <XCircle className="shrink-0 text-red-500" size={20} />}
+                    <div>
+                      <p className="text-sm font-semibold">{r.name}</p>
+                      <p className="text-xs text-foreground-muted">{r.message}</p>
+                    </div>
+                  </GlassCard>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </div>

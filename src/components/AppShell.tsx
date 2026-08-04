@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { Home, Images, Users, HeartHandshake, UserRound } from "lucide-react";
 import { EVENT_NAME } from "@/lib/event";
 import { useSession } from "@/lib/session";
 import { canManagePeople } from "@/lib/admin";
+import { PageTransition } from "@/components/PageTransition";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
@@ -37,17 +39,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {navItems.map(({ href, label, icon: Icon }) => {
               const active = isActive(pathname, href);
               return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                    active
-                      ? "bg-saffron-deep/15 text-saffron-deep"
-                      : "text-foreground-muted hover:text-foreground"
-                  }`}
-                >
-                  <Icon size={18} strokeWidth={2} />
-                  {label}
+                <Link key={href} href={href} className="relative px-1 py-1">
+                  {active && (
+                    <motion.span
+                      layoutId="desktop-nav-pill"
+                      className="absolute inset-0 rounded-xl bg-saffron-deep/15"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <span
+                    className={`relative z-10 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                      active ? "text-saffron-deep" : "text-foreground-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon size={18} strokeWidth={2} />
+                    {label}
+                  </span>
                 </Link>
               );
             })}
@@ -56,7 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] md:px-6 md:pb-12 md:pt-8">
-        {children}
+        <PageTransition>{children}</PageTransition>
       </main>
 
       {/* Mobile bottom nav */}
@@ -65,19 +72,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {navItems.map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href);
             return (
-              <Link
-                key={href}
-                href={href}
-                className="flex flex-1 flex-col items-center gap-1 rounded-2xl py-2 text-[11px] font-medium"
-              >
-                <Icon
-                  size={22}
-                  strokeWidth={active ? 2.4 : 2}
-                  className={active ? "text-saffron-deep" : "text-foreground-muted"}
-                />
-                <span className={active ? "text-saffron-deep" : "text-foreground-muted"}>
-                  {label}
-                </span>
+              <Link key={href} href={href} className="relative flex flex-1 flex-col items-center">
+                {active && (
+                  <motion.span
+                    layoutId="mobile-nav-pill"
+                    className="absolute inset-x-1 inset-y-0 rounded-2xl bg-saffron-deep/10"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <motion.span
+                  className="relative z-10 flex flex-col items-center gap-1 py-2 text-[11px] font-medium"
+                  animate={active ? { y: -1, scale: 1.06 } : { y: 0, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                >
+                  <Icon
+                    size={22}
+                    strokeWidth={active ? 2.4 : 2}
+                    className={active ? "text-saffron-deep" : "text-foreground-muted"}
+                  />
+                  <span className={active ? "text-saffron-deep" : "text-foreground-muted"}>
+                    {label}
+                  </span>
+                </motion.span>
               </Link>
             );
           })}

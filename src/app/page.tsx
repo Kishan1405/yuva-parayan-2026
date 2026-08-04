@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { Images, Users, HeartHandshake, UserRound, MapPin, QrCode, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
@@ -12,7 +13,7 @@ import {
   daysUntilStart,
   currentEventDay,
 } from "@/lib/event";
-import { GlassCard } from "@/components/ui/GlassCard";
+import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
 import { canManagePeople } from "@/lib/admin";
 import type { Department, Mandal } from "@/lib/database.types";
 
@@ -56,8 +57,13 @@ export default function HomePage() {
   const firstName = user?.name.trim().split(" ")[0] ?? "";
 
   return (
-    <div className="space-y-6">
-      <div>
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className="space-y-6"
+    >
+      <motion.div variants={staggerItem}>
         <p className="text-sm text-foreground-muted">Jai Swaminarayan{firstName ? "," : ""}</p>
         <div className="flex items-center gap-2">
           <h1 className="font-display text-2xl font-semibold">{firstName || "Welcome"}</h1>
@@ -74,9 +80,9 @@ export default function HomePage() {
             </span>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      <GlassCard strong className="relative overflow-hidden">
+      <GlassCard strong variants={staggerItem} className="relative overflow-hidden">
         <div className="relative z-10">
           <p className="text-xs font-semibold uppercase tracking-wide text-saffron-deep">
             {EVENT_NAME}
@@ -109,7 +115,7 @@ export default function HomePage() {
       {department &&
         (canBrowseDepartments ? (
           <Link href={`/departments/${department.slug}`}>
-            <GlassCard className="flex items-center justify-between transition hover:brightness-105">
+            <GlassCard interactive variants={staggerItem} className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-foreground-muted">
                   Your seva
@@ -120,7 +126,7 @@ export default function HomePage() {
             </GlassCard>
           </Link>
         ) : (
-          <GlassCard className="flex items-center justify-between">
+          <GlassCard variants={staggerItem} className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-foreground-muted">
                 Your seva
@@ -131,13 +137,13 @@ export default function HomePage() {
           </GlassCard>
         ))}
 
-      <div>
+      <motion.div variants={staggerItem}>
         <h2 className="mb-3 font-display text-base font-semibold">Explore</h2>
         <div className="grid grid-cols-2 gap-3">
           {quickLinks.map(({ href, label, icon: Icon, blurb }, i) =>
             i === 0 ? (
               <Link key={href} href={href} className="col-span-2">
-                <GlassCard className="flex items-center gap-3 transition hover:brightness-105">
+                <GlassCard interactive className="flex items-center gap-3">
                   <Icon className="text-saffron-deep" size={22} />
                   <div>
                     <p className="font-display text-sm font-semibold">{label}</p>
@@ -147,7 +153,7 @@ export default function HomePage() {
               </Link>
             ) : (
               <Link key={href} href={href}>
-                <GlassCard className="h-full transition hover:brightness-105">
+                <GlassCard interactive className="h-full">
                   <Icon className="text-saffron-deep" size={22} />
                   <p className="mt-3 font-display text-sm font-semibold">{label}</p>
                   <p className="mt-0.5 text-xs text-foreground-muted">{blurb}</p>
@@ -156,9 +162,9 @@ export default function HomePage() {
             )
           )}
         </div>
-      </div>
+      </motion.div>
 
-      <div>
+      <motion.div variants={staggerItem}>
         <h2 className="mb-3 font-display text-base font-semibold">Schedule</h2>
         <div className="space-y-4">
           {EVENT_DAYS.map((d) => (
@@ -177,7 +183,7 @@ export default function HomePage() {
             </GlassCard>
           ))}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

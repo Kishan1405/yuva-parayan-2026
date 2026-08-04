@@ -16,14 +16,15 @@
   --gold: #d4a017;
   --maroon: #7a2e1d;
 
-  --glass-bg: rgba(255, 255, 255, 0.65);
-  --glass-bg-strong: rgba(255, 255, 255, 0.85);
+  --glass-bg: rgba(255, 255, 255, 0.42);
+  --glass-bg-strong: rgba(255, 255, 255, 0.6);
   /* Warm-toned, not white — a white border on an off-white page is invisible,
      which is what made stacked cards look like they were touching. */
-  --glass-border: rgba(122, 46, 29, 0.14);
-  --glass-shadow: rgba(122, 46, 29, 0.14);
+  --glass-border: rgba(122, 46, 29, 0.16);
+  --glass-shadow: rgba(122, 46, 29, 0.16);
+  --glass-sheen: rgba(255, 255, 255, 0.55);
 
-  --nav-bg: rgba(255, 255, 255, 0.8);
+  --nav-bg: rgba(255, 255, 255, 0.55);
 }
 
 @theme inline {
@@ -63,36 +64,61 @@ body {
 .glass-card,
 .glass-card-strong,
 .glass-nav {
+  position: relative;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   isolation: isolate;
   /* Clips backdrop-filter to the rounded corners — without this, some mobile
      browsers render the blur as a hard-edged rectangle outside the radius. */
   overflow: hidden;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+/* Soft diagonal light reflection across the glass surface, like real frosted
+   glass catching light from the top-left — this is what sells "glass" over
+   a plain blurred rectangle. */
+.glass-card::before,
+.glass-card-strong::before,
+.glass-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    128deg,
+    var(--glass-sheen) 0%,
+    transparent 30%,
+    transparent 70%,
+    color-mix(in srgb, var(--glass-sheen) 40%, transparent) 100%
+  );
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .glass-card {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 2px 12px var(--glass-shadow);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 8px 24px var(--glass-shadow);
+  backdrop-filter: blur(28px) saturate(180%);
 }
 
 .glass-card-strong {
   background: var(--glass-bg-strong);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 4px 16px var(--glass-shadow);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 10px 28px var(--glass-shadow);
+  backdrop-filter: blur(32px) saturate(180%);
 }
 
 .glass-nav {
   background: var(--nav-bg);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 4px 20px var(--glass-shadow);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 8px 28px var(--glass-shadow);
+  backdrop-filter: blur(32px) saturate(180%);
 }
 
 .text-gradient-saffron {

@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { FeedbackSection } from "./FeedbackSection";
 import { WallSection } from "./WallSection";
 
 const TABS = [
-  { key: "feedback", label: "Day Feedback" },
-  { key: "wall", label: "Memory Wall" },
+  { value: "feedback", label: "Day Feedback" },
+  { value: "wall", label: "Memory Wall" },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+type TabKey = (typeof TABS)[number]["value"];
 
 export default function ReflectPage() {
   const [tab, setTab] = useState<TabKey>("feedback");
@@ -23,21 +24,7 @@ export default function ReflectPage() {
         </p>
       </div>
 
-      <div className="glass-card flex gap-1 rounded-2xl p-1">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition ${
-              tab === t.key
-                ? "bg-gradient-to-br from-saffron to-saffron-deep text-white shadow-md shadow-saffron-deep/20"
-                : "text-foreground-muted"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl options={[...TABS]} value={tab} onChange={setTab} />
 
       {tab === "feedback" ? <FeedbackSection /> : <WallSection />}
     </div>

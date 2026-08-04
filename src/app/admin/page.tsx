@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { Users, ScanLine, ShieldCheck, ClipboardList } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { canManagePeople } from "@/lib/admin";
-import { GlassCard } from "@/components/ui/GlassCard";
+import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
 
 export default function AdminDashboardPage() {
   const { user } = useSession();
@@ -21,10 +22,10 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
-      <div className="space-y-3">
+      <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-3">
         {canManagePeople(user?.role) && (
           <Link href="/admin/people">
-            <GlassCard className="flex items-center justify-between transition hover:brightness-105">
+            <GlassCard interactive variants={staggerItem} className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-saffron-deep/12">
                   <Users className="text-saffron-deep" size={18} />
@@ -41,7 +42,7 @@ export default function AdminDashboardPage() {
         )}
 
         <Link href="/admin/scan">
-          <GlassCard className="flex items-center justify-between transition hover:brightness-105">
+          <GlassCard interactive variants={staggerItem} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-saffron-deep/12">
                 <ScanLine className="text-saffron-deep" size={18} />
@@ -55,7 +56,7 @@ export default function AdminDashboardPage() {
         </Link>
 
         <Link href="/admin/log">
-          <GlassCard className="flex items-center justify-between transition hover:brightness-105">
+          <GlassCard interactive variants={staggerItem} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-saffron-deep/12">
                 <ClipboardList className="text-saffron-deep" size={18} />
@@ -67,7 +68,7 @@ export default function AdminDashboardPage() {
             </div>
           </GlassCard>
         </Link>
-      </div>
+      </motion.div>
     </div>
   );
 }

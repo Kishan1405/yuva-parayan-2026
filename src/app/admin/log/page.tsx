@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, CheckCircle2, Clock } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { listAttendance } from "@/lib/admin";
 import { EVENT_DAYS } from "@/lib/event";
-import { GlassCard } from "@/components/ui/GlassCard";
+import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import type { AttendanceLogEntry } from "@/lib/database.types";
 
 const REFRESH_MS = 1000;
@@ -71,42 +73,36 @@ export default function AttendanceLogPage() {
         <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-saffron-deep" />
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-3 gap-3"
+      >
         {counts.map((c) => (
-          <GlassCard key={c.day} className="text-center">
-            <p className="font-display text-2xl font-semibold text-saffron-deep">{c.count}</p>
+          <GlassCard key={c.day} variants={staggerItem} className="text-center">
+            <motion.p
+              key={c.count}
+              initial={{ scale: 1.3, opacity: 0.6 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="font-display text-2xl font-semibold text-saffron-deep"
+            >
+              {c.count}
+            </motion.p>
             <p className="mt-0.5 text-xs text-foreground-muted">Day {c.day}</p>
           </GlassCard>
         ))}
-      </div>
+      </motion.div>
 
-      <div className="glass-card flex gap-1 rounded-2xl p-1">
-        <button
-          type="button"
-          onClick={() => setDayFilter("all")}
-          className={`flex-1 rounded-xl py-2 text-sm font-semibold transition ${
-            dayFilter === "all"
-              ? "bg-gradient-to-br from-saffron to-saffron-deep text-white shadow-md shadow-saffron-deep/20"
-              : "text-foreground-muted"
-          }`}
-        >
-          All
-        </button>
-        {EVENT_DAYS.map((d) => (
-          <button
-            key={d.day}
-            type="button"
-            onClick={() => setDayFilter(d.day)}
-            className={`flex-1 rounded-xl py-2 text-sm font-semibold transition ${
-              dayFilter === d.day
-                ? "bg-gradient-to-br from-saffron to-saffron-deep text-white shadow-md shadow-saffron-deep/20"
-                : "text-foreground-muted"
-            }`}
-          >
-            Day {d.day}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        options={[
+          { value: "all", label: "All" },
+          ...EVENT_DAYS.map((d) => ({ value: String(d.day), label: `Day ${d.day}` })),
+        ]}
+        value={String(dayFilter)}
+        onChange={(v) => setDayFilter(v === "all" ? "all" : Number(v))}
+      />
 
       {error && (
         <GlassCard className="text-center text-sm text-foreground-muted">{error}</GlassCard>
@@ -126,27 +122,38 @@ export default function AttendanceLogPage() {
 
       {visible && visible.length > 0 && (
         <div className="space-y-3">
-          {visible.map((e) => (
-            <GlassCard key={e.attendance_id} className="flex items-center gap-3 py-3">
-              <CheckCircle2 className="shrink-0 text-saffron-deep" size={20} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{e.attendee_name}</p>
-                <p className="truncate text-xs text-foreground-muted">
-                  {e.contact_number}
-                  {e.scanned_by_name && <> · scanned by {e.scanned_by_name}</>}
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <span className="rounded-full bg-saffron-deep/12 px-2 py-0.5 text-[11px] font-semibold text-saffron-deep">
-                  Day {e.day}
-                </span>
-                <p className="mt-1 flex items-center gap-1 text-[11px] text-foreground-muted">
-                  <Clock size={11} />
-                  {formatTime(e.scanned_at)}
-                </p>
-              </div>
-            </GlassCard>
-          ))}
+          <AnimatePresence initial={false}>
+            {visible.map((e) => (
+              <motion.div
+                key={e.attendance_id}
+                layout
+                initial={{ opacity: 0, y: -16, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 400, damping: 32 }}
+              >
+                <GlassCard className="flex items-center gap-3 py-3">
+                  <CheckCircle2 className="shrink-0 text-saffron-deep" size={20} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{e.attendee_name}</p>
+                    <p className="truncate text-xs text-foreground-muted">
+                      {e.contact_number}
+                      {e.scanned_by_name && <> · scanned by {e.scanned_by_name}</>}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="rounded-full bg-saffron-deep/12 px-2 py-0.5 text-[11px] font-semibold text-saffron-deep">
+                      Day {e.day}
+                    </span>
+                    <p className="mt-1 flex items-center gap-1 text-[11px] text-foreground-muted">
+                      <Clock size={11} />
+                      {formatTime(e.scanned_at)}
+                    </p>
+                  </div>
+                </GlassCard>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
     </div>

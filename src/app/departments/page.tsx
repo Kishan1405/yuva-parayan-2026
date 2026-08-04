@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ChevronRight, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
-import { GlassCard } from "@/components/ui/GlassCard";
+import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
 import type { Department } from "@/lib/database.types";
 
 export default function DepartmentsPage() {
@@ -29,7 +30,7 @@ export default function DepartmentsPage() {
         </p>
       </div>
 
-      <div className="space-y-4">
+      <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
         {departments === null &&
           [0, 1, 2, 3].map((i) => (
             <div key={i} className="glass-card h-20 animate-pulse rounded-3xl" />
@@ -37,7 +38,7 @@ export default function DepartmentsPage() {
 
         {departments?.map((dept) => (
           <Link key={dept.id} href={`/departments/${dept.slug}`}>
-            <GlassCard className="flex items-center justify-between transition hover:brightness-105">
+            <GlassCard interactive variants={staggerItem} className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-saffron-deep/12">
                   <Users className="text-saffron-deep" size={18} />
@@ -60,7 +61,7 @@ export default function DepartmentsPage() {
             </GlassCard>
           </Link>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 }

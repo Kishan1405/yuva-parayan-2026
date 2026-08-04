@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Pencil, ShieldCheck, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
@@ -93,63 +94,80 @@ export default function ProfilePage() {
         </div>
       </GlassCard>
 
-      {!editing ? (
-        <>
-          <GlassCard className="space-y-4">
-            <Row label="Mandal" value={currentMandal?.name ?? "—"} />
-            <Row
-              label="Department"
-              value={department?.name ?? "Not yet assigned"}
-              icon={<Users size={15} className="text-foreground-muted" />}
-            />
-          </GlassCard>
+      <AnimatePresence mode="wait" initial={false}>
+        {!editing ? (
+          <motion.div
+            key="view"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18 }}
+            className="space-y-4"
+          >
+            <GlassCard className="space-y-4">
+              <Row label="Mandal" value={currentMandal?.name ?? "—"} />
+              <Row
+                label="Department"
+                value={department?.name ?? "Not yet assigned"}
+                icon={<Users size={15} className="text-foreground-muted" />}
+              />
+            </GlassCard>
 
-          <Button variant="ghost" onClick={startEditing} className="w-full">
-            <Pencil size={16} />
-            Edit details
-          </Button>
-        </>
-      ) : (
-        <GlassCard strong className="space-y-4">
-          <div>
-            <Label>Full name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div>
-            <Label>Contact number</Label>
-            <Input
-              value={contact}
-              onChange={(e) => setContact(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
-              inputMode="numeric"
-            />
-          </div>
-          <div>
-            <Label>Mandal</Label>
-            <Select value={mandalId} onChange={(e) => setMandalId(e.target.value)}>
-              {mandals.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          {error && <p className="text-sm text-red-500">{error}</p>}
-
-          <div className="flex gap-3">
-            <Button variant="ghost" className="flex-1" onClick={() => setEditing(false)}>
-              Cancel
+            <Button variant="ghost" onClick={startEditing} className="w-full">
+              <Pencil size={16} />
+              Edit details
             </Button>
-            <Button className="flex-1" disabled={saving} onClick={handleSave}>
-              {saving ? "Saving…" : "Save"}
-            </Button>
-          </div>
-        </GlassCard>
-      )}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="edit"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18 }}
+          >
+            <GlassCard strong className="space-y-4">
+              <div>
+                <Label>Full name</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div>
+                <Label>Contact number</Label>
+                <Input
+                  value={contact}
+                  onChange={(e) => setContact(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
+                  inputMode="numeric"
+                />
+              </div>
+              <div>
+                <Label>Mandal</Label>
+                <Select value={mandalId} onChange={(e) => setMandalId(e.target.value)}>
+                  {mandals.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              {error && <p className="text-sm text-red-500">{error}</p>}
+
+              <div className="flex gap-3">
+                <Button variant="ghost" className="flex-1" onClick={() => setEditing(false)}>
+                  Cancel
+                </Button>
+                <Button className="flex-1" disabled={saving} onClick={handleSave}>
+                  {saving ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {canScan(user.role) && (
         <Link href="/admin">
-          <GlassCard className="flex items-center justify-between transition hover:brightness-105">
+          <GlassCard interactive className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-saffron-deep/12">
                 <ShieldCheck className="text-saffron-deep" size={18} />

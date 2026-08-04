@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Send } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
-import { GlassCard } from "@/components/ui/GlassCard";
+import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
 import { Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import type { WallPost } from "@/lib/database.types";
@@ -88,20 +89,26 @@ export function WallSection() {
           </p>
         )}
 
-        {posts?.map((post) => (
-          <GlassCard key={post.id}>
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-saffron-deep/12 text-xs font-semibold text-saffron-deep">
-                {post.author_name.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="text-sm font-medium">{post.author_name}</p>
-                <p className="text-[11px] text-foreground-muted">{timeAgo(post.created_at)}</p>
-              </div>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-foreground">{post.content}</p>
-          </GlassCard>
-        ))}
+        <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-3">
+          <AnimatePresence initial={false}>
+            {posts?.map((post) => (
+              <motion.div key={post.id} layout variants={staggerItem} exit={{ opacity: 0, scale: 0.96 }}>
+                <GlassCard>
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-saffron-deep/12 text-xs font-semibold text-saffron-deep">
+                      {post.author_name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{post.author_name}</p>
+                      <p className="text-[11px] text-foreground-muted">{timeAgo(post.created_at)}</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-foreground">{post.content}</p>
+                </GlassCard>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       </div>
     </div>
   );

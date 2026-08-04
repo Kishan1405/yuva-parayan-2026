@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, ChevronDown, Lock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
@@ -100,9 +101,10 @@ export function FeedbackSection() {
         return (
           <div key={day.day}>
             <GlassCard
+              interactive={unlocked}
               onClick={() => unlocked && openForm(day)}
               className={`flex items-center justify-between py-3.5 ${
-                unlocked ? "cursor-pointer transition hover:brightness-105" : "opacity-60"
+                unlocked ? "cursor-pointer" : "opacity-60"
               }`}
             >
               <div>
@@ -127,46 +129,56 @@ export function FeedbackSection() {
               )}
             </GlassCard>
 
-            {isOpen && (
-              <GlassCard strong className="mt-2 space-y-5">
-                {questions.map((q) => (
-                  <div key={q.id}>
-                    <p className="mb-2 text-sm font-medium">{q.question_text}</p>
-                    {q.question_type === "rating" ? (
-                      <StarRating
-                        value={answers[q.id]?.rating ?? 0}
-                        onChange={(v) =>
-                          setAnswers((prev) => ({
-                            ...prev,
-                            [q.id]: { ...prev[q.id], rating: v, text: prev[q.id]?.text ?? "" },
-                          }))
-                        }
-                      />
-                    ) : (
-                      <Textarea
-                        rows={2}
-                        value={answers[q.id]?.text ?? ""}
-                        onChange={(e) =>
-                          setAnswers((prev) => ({
-                            ...prev,
-                            [q.id]: { rating: prev[q.id]?.rating ?? 0, text: e.target.value },
-                          }))
-                        }
-                        placeholder="Type your answer…"
-                      />
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => submit(day.day)}
-                  className="w-full"
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                  className="overflow-hidden"
                 >
-                  {saving ? "Saving…" : "Submit feedback"}
-                </Button>
-              </GlassCard>
-            )}
+                  <GlassCard strong className="mt-2 space-y-5">
+                    {questions.map((q) => (
+                      <div key={q.id}>
+                        <p className="mb-2 text-sm font-medium">{q.question_text}</p>
+                        {q.question_type === "rating" ? (
+                          <StarRating
+                            value={answers[q.id]?.rating ?? 0}
+                            onChange={(v) =>
+                              setAnswers((prev) => ({
+                                ...prev,
+                                [q.id]: { ...prev[q.id], rating: v, text: prev[q.id]?.text ?? "" },
+                              }))
+                            }
+                          />
+                        ) : (
+                          <Textarea
+                            rows={2}
+                            value={answers[q.id]?.text ?? ""}
+                            onChange={(e) =>
+                              setAnswers((prev) => ({
+                                ...prev,
+                                [q.id]: { rating: prev[q.id]?.rating ?? 0, text: e.target.value },
+                              }))
+                            }
+                            placeholder="Type your answer…"
+                          />
+                        )}
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => submit(day.day)}
+                      className="w-full"
+                    >
+                      {saving ? "Saving…" : "Submit feedback"}
+                    </Button>
+                  </GlassCard>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {justSavedDay === day.day && (
               <p className="mt-2 pl-1 text-xs font-medium text-saffron-deep">
