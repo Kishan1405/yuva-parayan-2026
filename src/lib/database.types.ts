@@ -85,6 +85,16 @@ export type AttendanceMarkResult = {
   already_marked: boolean;
 };
 
+export type AttendanceLogEntry = {
+  attendance_id: string;
+  user_id: string;
+  attendee_name: string;
+  contact_number: string;
+  day: number;
+  scanned_at: string;
+  scanned_by_name: string | null;
+};
+
 export type FeedbackResponse = {
   id: string;
   user_id: string;
@@ -162,6 +172,10 @@ export type Database = {
       attendance_mark: Fn<
         { p_caller_token: string; p_target_user_id: string; p_day: number },
         AttendanceMarkResult[]
+      >;
+      admin_list_attendance: Fn<
+        { p_caller_token: string; p_day?: number | null },
+        AttendanceLogEntry[]
       >;
     };
     Enums: Record<string, never>;

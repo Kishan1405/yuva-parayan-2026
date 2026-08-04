@@ -1,5 +1,12 @@
 import { supabase } from "./supabase";
-import type { AdminPerson, Attendance, AttendanceMarkResult, MemberRole, UserRole } from "./database.types";
+import type {
+  AdminPerson,
+  Attendance,
+  AttendanceLogEntry,
+  AttendanceMarkResult,
+  MemberRole,
+  UserRole,
+} from "./database.types";
 
 function friendlyError(message: string | undefined): string {
   if (!message) return "Something went wrong. Please try again.";
@@ -68,6 +75,18 @@ export async function getMyAttendance(
 ): Promise<{ data: Attendance[]; error: string | null }> {
   const { data, error } = await supabase.rpc("get_my_attendance", {
     p_device_token: deviceToken,
+  });
+  if (error) return { data: [], error: friendlyError(error.message) };
+  return { data: data ?? [], error: null };
+}
+
+export async function listAttendance(
+  callerToken: string,
+  day?: number
+): Promise<{ data: AttendanceLogEntry[]; error: string | null }> {
+  const { data, error } = await supabase.rpc("admin_list_attendance", {
+    p_caller_token: callerToken,
+    p_day: day ?? null,
   });
   if (error) return { data: [], error: friendlyError(error.message) };
   return { data: data ?? [], error: null };

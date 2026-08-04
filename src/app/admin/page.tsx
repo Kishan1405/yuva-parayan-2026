@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Users, ScanLine, ShieldCheck } from "lucide-react";
+import { Users, ScanLine, ShieldCheck, ClipboardList } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { canManagePeople } from "@/lib/admin";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -49,6 +49,20 @@ export default function AdminDashboardPage() {
               <div>
                 <p className="font-display text-sm font-semibold">Scan Attendance</p>
                 <p className="text-xs text-foreground-muted">Scan an attendee&apos;s QR code</p>
+              </div>
+            </div>
+          </GlassCard>
+        </Link>
+
+        <Link href="/admin/log">
+          <GlassCard className="flex items-center justify-between transition hover:brightness-105">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-saffron-deep/12">
+                <ClipboardList className="text-saffron-deep" size={18} />
+              </div>
+              <div>
+                <p className="font-display text-sm font-semibold">Attendance Log</p>
+                <p className="text-xs text-foreground-muted">Live list of everyone checked in</p>
               </div>
             </div>
           </GlassCard>
