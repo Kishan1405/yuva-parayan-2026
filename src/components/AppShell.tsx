@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Home, Images, Users, HeartHandshake, UserRound, ScanLine } from "lucide-react";
@@ -37,9 +38,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Desktop top nav */}
       <header className="sticky top-0 z-40 hidden md:block">
         <div className="glass-nav mx-auto mt-4 flex w-full max-w-4xl items-center justify-between rounded-2xl px-6 py-3">
-          <span className="font-display text-lg font-semibold text-gradient-saffron">
-            {EVENT_NAME}
-          </span>
+          <Link href="/" className="flex items-center gap-2.5">
+            <Image src="/logo.png" alt="" width={30} height={37} className="rounded-md" />
+            <span className="font-display text-lg font-semibold text-gradient-saffron">
+              {EVENT_NAME}
+            </span>
+          </Link>
           <nav className="flex items-center gap-1">
             {navItems.map(({ href, label, icon: Icon }) => {
               const active = isActive(pathname, href);

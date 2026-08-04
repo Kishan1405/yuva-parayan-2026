@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { EVENT_NAME } from "@/lib/event";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -29,12 +29,12 @@ export default function OnboardingPage() {
       >
         <div className="mb-8 text-center">
           <motion.div
-            initial={{ scale: 0.6, rotate: -8, opacity: 0 }}
-            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            initial={{ scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.1 }}
-            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-saffron to-saffron-deep shadow-lg shadow-saffron-deep/30"
+            className="mx-auto mb-4 flex h-20 w-[66px] items-center justify-center overflow-hidden rounded-2xl shadow-lg shadow-saffron-deep/20"
           >
-            <Sparkles className="text-white" size={26} />
+            <Image src="/logo.png" alt="BAPS Swaminarayan" width={132} height={162} priority />
           </motion.div>
           <h1 className="font-display text-2xl font-semibold text-gradient-saffron">
             {EVENT_NAME}
