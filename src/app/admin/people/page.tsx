@@ -95,9 +95,9 @@ export default function AdminPeoplePage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/admin" className="flex items-center gap-1.5 text-sm font-medium text-foreground-muted">
+      <Link href="/profile" className="flex items-center gap-1.5 text-sm font-medium text-foreground-muted">
         <ArrowLeft size={16} />
-        Admin
+        Profile
       </Link>
 
       <div>

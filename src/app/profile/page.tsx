@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Pencil, ShieldCheck, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
-import { canScan } from "@/lib/admin";
+import { canManagePeople } from "@/lib/admin";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Label, Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
@@ -165,8 +165,8 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
 
-      {canScan(user.role) && (
-        <Link href="/admin">
+      {canManagePeople(user.role) && (
+        <Link href="/admin/people">
           <GlassCard interactive className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-saffron-deep/12">

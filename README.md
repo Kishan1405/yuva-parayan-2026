@@ -21,14 +21,18 @@ the browser holds a private device token that identifies the account (see
 
 ## Modules (admin side, phase 2)
 
-Reachable at `/admin` — only visible/usable to accounts with an elevated
-`role` (see "How admin access works" below).
+Only visible/usable to accounts with an elevated `role` (see "How admin
+access works" below) — never shown for plain `user` accounts, regardless of
+Mandal or department assignment.
 
-- **People** — search everyone, grouped by Mandal; assign/remove someone's
-  department + seva role (member/in-charge); `super_admin` can also set
-  anyone's access level (user/scanner/admin/super_admin)
-- **Scan Attendance** — camera-based QR scanner, per-day, records a check-in
-  against the scanned person's account
+- **Scan** (`/scan`, own bottom-nav tab) — visible to `scanner`, `admin`, and
+  `super_admin`. One page: camera-based QR scanner up top (per-day, records a
+  check-in against the scanned person's account), and the live Attendee Logs
+  (per-day counts + full scan history, auto-refreshing every second) below it.
+- **People** (`/admin/people`, linked from Profile) — visible to `admin` and
+  `super_admin` only. Search everyone, grouped by Mandal; assign/remove
+  someone's department + seva role (member/in-charge); `super_admin` can
+  also set anyone's access level (user/scanner/admin/super_admin).
 
 Editing departments/tasks/feedback questions/Mandals themselves still happens
 directly in the Supabase table editor — not built into the admin UI yet.

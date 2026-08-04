@@ -3,12 +3,12 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session";
-import { canManagePeople } from "@/lib/admin";
+import { canScan } from "@/lib/admin";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function ScanLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useSession();
   const router = useRouter();
-  const authorized = canManagePeople(user?.role);
+  const authorized = canScan(user?.role);
 
   useEffect(() => {
     if (loading) return;

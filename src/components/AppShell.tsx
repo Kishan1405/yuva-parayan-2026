@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, Images, Users, HeartHandshake, UserRound } from "lucide-react";
+import { Home, Images, Users, HeartHandshake, UserRound, ScanLine } from "lucide-react";
 import { EVENT_NAME } from "@/lib/event";
 import { useSession } from "@/lib/session";
-import { canManagePeople } from "@/lib/admin";
+import { canManagePeople, canScan } from "@/lib/admin";
 import { PageTransition } from "@/components/PageTransition";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/memories", label: "Memories", icon: Images },
   { href: "/departments", label: "Departments", icon: Users, adminOnly: true },
+  { href: "/scan", label: "Scan", icon: ScanLine, scanOnly: true },
   { href: "/reflect", label: "Reflect", icon: HeartHandshake },
   { href: "/profile", label: "Profile", icon: UserRound },
 ];
@@ -25,7 +26,11 @@ function isActive(pathname: string, href: string) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useSession();
-  const navItems = NAV_ITEMS.filter((item) => !item.adminOnly || canManagePeople(user?.role));
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (item.adminOnly && !canManagePeople(user?.role)) return false;
+    if (item.scanOnly && !canScan(user?.role)) return false;
+    return true;
+  });
 
   return (
     <div className="flex min-h-screen flex-col">
