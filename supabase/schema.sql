@@ -65,6 +65,7 @@ create table users (
   department_id uuid references departments(id),
   department_role text not null default 'member' check (department_role in ('member', 'in-charge')),
   role text not null default 'user' check (role in ('user', 'scanner', 'admin', 'super_admin')),
+  login_pin_hash text,
   created_at timestamptz not null default now()
 );
 
@@ -130,6 +131,8 @@ create policy "anyone can post to wall" on wall_posts for insert with check (tru
 
 -- ---------- self-service functions (any signed-up user, incl. anonymous signup) ----------
 
+-- PIN defaults to the last 4 digits of the contact number used to sign up —
+-- no separate setup step, works the same for every account.
 create or replace function signup_user(p_name text, p_contact_number text, p_mandal_id uuid)
 returns users
 language plpgsql
@@ -138,9 +141,11 @@ set search_path = public
 as $$
 declare
   v_user users;
+  v_contact text;
 begin
-  insert into users (name, contact_number, mandal_id)
-  values (trim(p_name), trim(p_contact_number), p_mandal_id)
+  v_contact := trim(p_contact_number);
+  insert into users (name, contact_number, mandal_id, login_pin_hash)
+  values (trim(p_name), v_contact, p_mandal_id, crypt(right(v_contact, 4), gen_salt('bf')))
   returning * into v_user;
   return v_user;
 end;
@@ -187,6 +192,44 @@ as $$
   select a.* from attendance a
   join users u on u.id = a.user_id
   where u.device_token = p_device_token;
+$$;
+
+-- Log into the same account from another device: set/change your own PIN
+-- from a device where you're already logged in...
+create or replace function set_login_pin(p_device_token uuid, p_pin text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_pin !~ '^\d{4,6}$' then
+    raise exception 'PIN must be 4 to 6 digits';
+  end if;
+
+  update users
+  set login_pin_hash = crypt(p_pin, gen_salt('bf'))
+  where device_token = p_device_token;
+
+  if not found then
+    raise exception 'Not found';
+  end if;
+end;
+$$;
+
+-- ...then log in with name + contact number + that PIN on the new device.
+create or replace function login_with_pin(p_name text, p_contact_number text, p_pin text)
+returns users
+language sql
+security definer
+set search_path = public
+as $$
+  select * from users
+  where lower(trim(name)) = lower(trim(p_name))
+    and contact_number = trim(p_contact_number)
+    and login_pin_hash is not null
+    and login_pin_hash = crypt(p_pin, login_pin_hash)
+  limit 1;
 $$;
 
 -- Public roster lookup — anyone can see who's in a department (name +
@@ -389,6 +432,8 @@ grant execute on function signup_user(text, text, uuid) to anon, authenticated;
 grant execute on function get_user_by_token(uuid) to anon, authenticated;
 grant execute on function update_own_profile(uuid, text, text, uuid) to anon, authenticated;
 grant execute on function get_my_attendance(uuid) to anon, authenticated;
+grant execute on function set_login_pin(uuid, text) to anon, authenticated;
+grant execute on function login_with_pin(text, text, text) to anon, authenticated;
 grant execute on function get_department_roster(uuid) to anon, authenticated;
 grant execute on function admin_search_people(uuid, text) to anon, authenticated;
 grant execute on function admin_assign_department(uuid, uuid, uuid, text) to anon, authenticated;

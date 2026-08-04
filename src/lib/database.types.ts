@@ -151,6 +151,8 @@ export type Database = {
         AppUser
       >;
       get_my_attendance: Fn<{ p_device_token: string }, Attendance[]>;
+      set_login_pin: Fn<{ p_device_token: string; p_pin: string }, null>;
+      login_with_pin: Fn<{ p_name: string; p_contact_number: string; p_pin: string }, AppUser | null>;
       get_department_roster: Fn<{ p_department_id: string }, DepartmentRosterEntry[]>;
       // NOTE: these all use `returns table(...)` in SQL, so PostgREST always
       // wraps the result in an array — even ones that only ever produce one

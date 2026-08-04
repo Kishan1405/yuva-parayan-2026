@@ -19,11 +19,18 @@ interface SignUpInput {
   mandal_id: string;
 }
 
+interface LoginInput {
+  name: string;
+  contact_number: string;
+  pin: string;
+}
+
 interface SessionContextValue {
   user: AppUser | null;
   deviceToken: string | null;
   loading: boolean;
   signUp: (input: SignUpInput) => Promise<{ error: string | null }>;
+  login: (input: LoginInput) => Promise<{ error: string | null }>;
   updateProfile: (input: {
     name: string;
     contact_number: string;
@@ -88,6 +95,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return { error: null };
   }, []);
 
+  const login = useCallback(async (input: LoginInput) => {
+    const { data, error } = await supabase.rpc("login_with_pin", {
+      p_name: input.name.trim(),
+      p_contact_number: input.contact_number.trim(),
+      p_pin: input.pin.trim(),
+    });
+
+    // Same "not found" quirk as get_user_by_token — a miss comes back as an
+    // all-null object, not a bare null.
+    if (error || !data || !data.id) {
+      return { error: error?.message ?? "Name, contact number, or PIN is incorrect." };
+    }
+
+    localStorage.setItem(STORAGE_KEY, data.device_token);
+    setUser(data);
+    setDeviceToken(data.device_token);
+    return { error: null };
+  }, []);
+
   const updateProfile = useCallback(
     async (input: { name: string; contact_number: string; mandal_id: string }) => {
       if (!deviceToken) return { error: "Not signed in." };
@@ -115,7 +141,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   return (
     <SessionContext.Provider
-      value={{ user, deviceToken, loading, signUp, updateProfile, refresh, forgetDevice }}
+      value={{ user, deviceToken, loading, signUp, login, updateProfile, refresh, forgetDevice }}
     >
       {children}
     </SessionContext.Provider>
