@@ -12,15 +12,24 @@ import {
   Search,
   UserMinus,
   UserPlus,
+  UserRoundPlus,
   XCircle,
 } from "lucide-react";
 import { useSession } from "@/lib/session";
-import { markAttendance, listAttendance, scanSearchPeople, deleteAttendance } from "@/lib/admin";
+import { supabase } from "@/lib/supabase";
+import {
+  markAttendance,
+  listAttendance,
+  scanSearchPeople,
+  deleteAttendance,
+  registerPerson,
+} from "@/lib/admin";
 import { EVENT_DAYS } from "@/lib/event";
 import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { Input } from "@/components/ui/Field";
-import type { AttendanceLogEntry, ScanPerson } from "@/lib/database.types";
+import { Input, Select } from "@/components/ui/Field";
+import { Button } from "@/components/ui/Button";
+import type { AttendanceLogEntry, Mandal, ScanPerson } from "@/lib/database.types";
 
 const QR_PREFIX = "YP2026:";
 const RESUME_DELAY_MS = 1200;
@@ -55,11 +64,34 @@ export default function ScanPage() {
   const [results, setResults] = useState<ScanResult[]>([]);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // ---- manual entry ----
+  // ---- manual entry (find someone already in the system) ----
   const [manualOpen, setManualOpen] = useState(false);
   const [manualQuery, setManualQuery] = useState("");
   const [manualResults, setManualResults] = useState<ScanPerson[] | null>(null);
   const [manualSearching, setManualSearching] = useState(false);
+
+  // ---- register a brand-new person (not in the system at all) ----
+  const [mandals, setMandals] = useState<Mandal[]>([]);
+  const [newPersonOpen, setNewPersonOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newContact, setNewContact] = useState("");
+  const [newMandalId, setNewMandalId] = useState("");
+  const [newSubmitting, setNewSubmitting] = useState(false);
+  const [newError, setNewError] = useState<string | null>(null);
+  const [newSuccess, setNewSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("mandals")
+      .select("*")
+      .order("sort_order")
+      .then(({ data }) => {
+        if (data) {
+          setMandals(data);
+          if (data.length > 0) setNewMandalId((prev) => prev || data[0].id);
+        }
+      });
+  }, []);
 
   // ---- attendee log ----
   const [entries, setEntries] = useState<AttendanceLogEntry[] | null>(null);
@@ -155,6 +187,61 @@ export default function ScanPage() {
     setManualResults(null);
   }
 
+  async function handleRegisterPerson(e: React.FormEvent) {
+    e.preventDefault();
+    setNewError(null);
+    setNewSuccess(null);
+
+    const name = newName.trim();
+    const contact = newContact.trim();
+
+    if (name.length < 2) {
+      setNewError("Please enter their full name.");
+      return;
+    }
+    if (!/^\d{10}$/.test(contact)) {
+      setNewError("Please enter a valid 10-digit contact number.");
+      return;
+    }
+    if (!newMandalId) {
+      setNewError("Please select a Mandal.");
+      return;
+    }
+    if (!deviceToken) return;
+
+    setNewSubmitting(true);
+
+    // Guard against accidental duplicates — this flow is meant for people
+    // who genuinely aren't in the system yet.
+    const { data: existing } = await scanSearchPeople(deviceToken, contact);
+    const exactMatch = existing.find((p) => p.contact_number === contact);
+    if (exactMatch) {
+      setNewSubmitting(false);
+      setNewError(
+        `${contact} is already registered as "${exactMatch.name}" — use manual search above instead.`
+      );
+      return;
+    }
+
+    const { data: created, error } = await registerPerson(name, contact, newMandalId);
+    setNewSubmitting(false);
+
+    if (error || !created) {
+      setNewError(error ?? "Could not register this person. Please try again.");
+      return;
+    }
+
+    if (dayRef.current !== null) {
+      await recordScan(created.id);
+      setNewSuccess(`Registered and checked in — Day ${dayRef.current}.`);
+    } else {
+      setNewSuccess("Registered. Select a day above to check them in.");
+    }
+
+    setNewName("");
+    setNewContact("");
+  }
+
   async function handleDeleteEntry(entry: AttendanceLogEntry) {
     if (!deviceToken) return;
     if (!confirm(`Remove ${entry.attendee_name}'s Day ${entry.day} check-in?`)) return;
@@ -206,10 +293,79 @@ export default function ScanPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <ScanLine className="text-saffron-deep" size={22} />
-        <h1 className="font-display text-2xl font-semibold">Scan</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ScanLine className="text-saffron-deep" size={22} />
+          <h1 className="font-display text-2xl font-semibold">Scan</h1>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setNewError(null);
+            setNewSuccess(null);
+            setNewPersonOpen((v) => !v);
+          }}
+          className="flex items-center gap-1.5 rounded-full bg-saffron-deep/10 px-3 py-2 text-sm font-semibold text-saffron-deep"
+        >
+          <UserRoundPlus size={16} />
+          New Person
+        </button>
       </div>
+
+      <AnimatePresence initial={false}>
+        {newPersonOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <GlassCard strong className="space-y-4">
+              <div>
+                <p className="mb-1 text-sm font-semibold">Register a new person</p>
+                <p className="text-xs text-foreground-muted">
+                  For someone who isn&apos;t in the system yet.
+                  {daySelected
+                    ? ` They'll be checked in for Day ${day} right away.`
+                    : " Select a day above to also check them in."}
+                </p>
+              </div>
+
+              <form onSubmit={handleRegisterPerson} className="space-y-3">
+                <Input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Full name"
+                  autoComplete="name"
+                />
+                <Input
+                  value={newContact}
+                  onChange={(e) => setNewContact(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
+                  placeholder="10-digit mobile number"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                />
+                <Select value={newMandalId} onChange={(e) => setNewMandalId(e.target.value)}>
+                  {mandals.length === 0 && <option value="">Loading Mandals…</option>}
+                  {mandals.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </Select>
+
+                {newError && <p className="text-sm text-red-500">{newError}</p>}
+                {newSuccess && <p className="text-sm text-saffron-deep">{newSuccess}</p>}
+
+                <Button type="submit" disabled={newSubmitting} className="w-full">
+                  {newSubmitting ? "Registering…" : "Register"}
+                </Button>
+              </form>
+            </GlassCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ---------- day selection (mandatory) ---------- */}
       <div className="space-y-3">

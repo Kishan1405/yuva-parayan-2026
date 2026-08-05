@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import type {
   AdminPerson,
+  AppUser,
   Attendance,
   AttendanceLogEntry,
   AttendanceMarkResult,
@@ -69,6 +70,25 @@ export async function markAttendance(
   });
   if (error) return { data: null, error: friendlyError(error.message) };
   return { data: data?.[0] ?? null, error: null };
+}
+
+// Registers a brand-new person (not already in the system) from the Scan
+// page. Reuses the same public signup_user() function the onboarding form
+// uses — deliberately does NOT touch localStorage/device_token the way
+// useSession().signUp() does, since this creates an account for someone
+// else, not a login for the caller's own device.
+export async function registerPerson(
+  name: string,
+  contactNumber: string,
+  mandalId: string
+): Promise<{ data: AppUser | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("signup_user", {
+    p_name: name,
+    p_contact_number: contactNumber,
+    p_mandal_id: mandalId,
+  });
+  if (error) return { data: null, error: friendlyError(error.message) };
+  return { data: data ?? null, error: null };
 }
 
 export async function scanSearchPeople(
