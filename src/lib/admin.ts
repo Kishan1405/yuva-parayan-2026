@@ -58,6 +58,18 @@ export async function setUserRole(
   return { data: data?.[0] ?? null, error: null };
 }
 
+export async function deletePerson(
+  callerToken: string,
+  targetUserId: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc("admin_delete_person", {
+    p_caller_token: callerToken,
+    p_target_user_id: targetUserId,
+  });
+  if (error) return { error: friendlyError(error.message) };
+  return { error: null };
+}
+
 export async function markAttendance(
   callerToken: string,
   targetUserId: string,

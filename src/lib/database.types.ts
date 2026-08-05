@@ -179,6 +179,7 @@ export type Database = {
         { p_caller_token: string; p_target_user_id: string; p_role: UserRole },
         AdminPerson[]
       >;
+      admin_delete_person: Fn<{ p_caller_token: string; p_target_user_id: string }, null>;
       attendance_mark: Fn<
         { p_caller_token: string; p_target_user_id: string; p_day: number },
         AttendanceMarkResult[]

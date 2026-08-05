@@ -352,6 +352,36 @@ begin
 end;
 $$;
 
+-- Remove-person action on the People page. Deletes the account entirely
+-- (attendance/feedback cascade-delete; wall posts stay, just orphaned).
+-- Same access level as the rest of the People page. Can't delete yourself.
+create or replace function admin_delete_person(p_caller_token uuid, p_target_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_caller_role text;
+  v_caller_id uuid;
+begin
+  select u.role, u.id into v_caller_role, v_caller_id from users u where u.device_token = p_caller_token;
+  if v_caller_role is null or v_caller_role not in ('admin', 'super_admin') then
+    raise exception 'Not authorized';
+  end if;
+
+  if v_caller_id = p_target_user_id then
+    raise exception 'You cannot remove your own account';
+  end if;
+
+  delete from users where id = p_target_user_id;
+
+  if not found then
+    raise exception 'Person not found';
+  end if;
+end;
+$$;
+
 create or replace function attendance_mark(p_caller_token uuid, p_target_user_id uuid, p_day smallint)
 returns table (
   attendance_id uuid,
@@ -496,6 +526,7 @@ grant execute on function get_department_roster(uuid) to anon, authenticated;
 grant execute on function admin_search_people(uuid, text) to anon, authenticated;
 grant execute on function admin_assign_department(uuid, uuid, uuid, text) to anon, authenticated;
 grant execute on function admin_set_role(uuid, uuid, text) to anon, authenticated;
+grant execute on function admin_delete_person(uuid, uuid) to anon, authenticated;
 grant execute on function attendance_mark(uuid, uuid, smallint) to anon, authenticated;
 grant execute on function scan_search_people(uuid, text) to anon, authenticated;
 grant execute on function admin_list_attendance(uuid, smallint) to anon, authenticated;

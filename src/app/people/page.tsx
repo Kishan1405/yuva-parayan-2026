@@ -2,10 +2,16 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Search, ShieldCheck, Users } from "lucide-react";
+import { ChevronDown, Search, ShieldCheck, UserX, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
-import { searchPeople, assignDepartment, setUserRole, canManageAdmins } from "@/lib/admin";
+import {
+  searchPeople,
+  assignDepartment,
+  setUserRole,
+  deletePerson,
+  canManageAdmins,
+} from "@/lib/admin";
 import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
 import { Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
@@ -92,6 +98,23 @@ export default function PeoplePage() {
     if (error) alert(error);
   }
 
+  async function handleDeletePerson(person: AdminPerson) {
+    if (!deviceToken) return;
+    if (
+      !confirm(
+        `Permanently remove ${person.name}'s account? This deletes their attendance and feedback too, and can't be undone.`
+      )
+    )
+      return;
+
+    const { error } = await deletePerson(deviceToken, person.id);
+    if (error) {
+      alert(error);
+      return;
+    }
+    setPeople((prev) => prev.filter((p) => p.id !== person.id));
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -142,6 +165,7 @@ export default function PeoplePage() {
                     onToggle={() => setOpenId(openId === person.id ? null : person.id)}
                     onAssignDepartment={handleAssignDepartment}
                     onSetRole={handleSetRole}
+                    onDelete={handleDeletePerson}
                     canManageAdmins={canManageAdmins(user?.role)}
                     isSelf={person.id === user?.id}
                   />
@@ -166,6 +190,7 @@ function PersonRow({
   onToggle,
   onAssignDepartment,
   onSetRole,
+  onDelete,
   canManageAdmins,
   isSelf,
 }: {
@@ -176,6 +201,7 @@ function PersonRow({
   onToggle: () => void;
   onAssignDepartment: (id: string, departmentId: string | null, role: MemberRole) => void;
   onSetRole: (id: string, role: UserRole) => void;
+  onDelete: (person: AdminPerson) => void;
   canManageAdmins: boolean;
   isSelf: boolean;
 }) {
@@ -295,6 +321,18 @@ function PersonRow({
                   </div>
                 </div>
               )}
+
+              <div className="border-t border-foreground/10 pt-4">
+                <button
+                  type="button"
+                  disabled={isSelf}
+                  onClick={() => onDelete(person)}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/10 py-2.5 text-sm font-semibold text-red-500 disabled:opacity-40"
+                >
+                  <UserX size={16} />
+                  {isSelf ? "Can't remove your own account" : "Remove this person"}
+                </button>
+              </div>
             </GlassCard>
           </motion.div>
         )}
