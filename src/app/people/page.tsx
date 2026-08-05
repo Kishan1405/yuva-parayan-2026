@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ChevronDown, Search, ShieldCheck } from "lucide-react";
+import { ChevronDown, Search, ShieldCheck, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
 import { searchPeople, assignDepartment, setUserRole, canManageAdmins } from "@/lib/admin";
@@ -10,7 +10,6 @@ import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassC
 import { Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import type { AdminPerson, Department, Mandal, MemberRole, UserRole } from "@/lib/database.types";
-import Link from "next/link";
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "user", label: "User" },
@@ -19,7 +18,7 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "super_admin", label: "Super Admin" },
 ];
 
-export default function AdminPeoplePage() {
+export default function PeoplePage() {
   const { user, deviceToken } = useSession();
   const [mandals, setMandals] = useState<Mandal[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -95,15 +94,11 @@ export default function AdminPeoplePage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/profile" className="flex items-center gap-1.5 text-sm font-medium text-foreground-muted">
-        <ArrowLeft size={16} />
-        Profile
-      </Link>
-
-      <div>
+      <div className="flex items-center gap-2">
+        <Users className="text-saffron-deep" size={22} />
         <h1 className="font-display text-2xl font-semibold">People</h1>
-        <p className="mt-1 text-sm text-foreground-muted">{people.length} people</p>
       </div>
+      <p className="-mt-4 text-sm text-foreground-muted">{people.length} people</p>
 
       <div className="relative">
         <Search
@@ -113,8 +108,9 @@ export default function AdminPeoplePage() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name…"
+          placeholder="Search by name or contact number…"
           className="pl-10"
+          autoFocus
         />
       </div>
 
@@ -140,6 +136,7 @@ export default function AdminPeoplePage() {
                 <motion.div key={person.id} variants={staggerItem}>
                   <PersonRow
                     person={person}
+                    mandalLabel={mandalName(person.mandal_id)}
                     departments={departments}
                     isOpen={openId === person.id}
                     onToggle={() => setOpenId(openId === person.id ? null : person.id)}
@@ -163,6 +160,7 @@ export default function AdminPeoplePage() {
 
 function PersonRow({
   person,
+  mandalLabel,
   departments,
   isOpen,
   onToggle,
@@ -172,6 +170,7 @@ function PersonRow({
   isSelf,
 }: {
   person: AdminPerson;
+  mandalLabel: string;
   departments: Department[];
   isOpen: boolean;
   onToggle: () => void;
@@ -207,7 +206,7 @@ function PersonRow({
             )}
           </div>
           <p className="mt-0.5 text-xs text-foreground-muted">
-            {person.contact_number}
+            {person.contact_number} · {mandalLabel}
             {person.department_id && (
               <> · {departments.find((d) => d.id === person.department_id)?.name ?? "Department"}</>
             )}

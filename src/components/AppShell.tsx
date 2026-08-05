@@ -12,6 +12,7 @@ import {
   HeartHandshake,
   UserRound,
   ScanLine,
+  Contact,
   Menu,
   ShieldCheck,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/memories", label: "Memories", icon: Images },
   { href: "/departments", label: "Departments", icon: Users, adminOnly: true },
+  { href: "/people", label: "People", icon: Contact, adminOnly: true },
   { href: "/scan", label: "Scan", icon: ScanLine, scanOnly: true },
   { href: "/reflect", label: "Reflect", icon: HeartHandshake },
   { href: "/profile", label: "Profile", icon: UserRound },

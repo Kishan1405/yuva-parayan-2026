@@ -29,10 +29,11 @@ Mandal or department assignment.
   `super_admin`. One page: camera-based QR scanner up top (per-day, records a
   check-in against the scanned person's account), and the live Attendee Logs
   (per-day counts + full scan history, auto-refreshing every second) below it.
-- **People** (`/admin/people`, linked from Profile) — visible to `admin` and
-  `super_admin` only. Search everyone, grouped by Mandal; assign/remove
-  someone's department + seva role (member/in-charge); `super_admin` can
-  also set anyone's access level (user/scanner/admin/super_admin).
+- **People** (`/people`, own nav tab) — visible to `admin` and `super_admin`
+  only. Search everyone by name or contact number, grouped by Mandal (Mandal
+  shown on every result too); assign/remove someone's department + seva role
+  (member/in-charge); `super_admin` can also set anyone's access level
+  (user/scanner/admin/super_admin).
 
 Editing departments/tasks/feedback questions/Mandals themselves still happens
 directly in the Supabase table editor — not built into the admin UI yet.
@@ -109,7 +110,7 @@ comments at the top of `supabase/migration_002_admin_attendance.sql` for the
 full design rationale.
 
 - `user` — everyone, by default
-- `scanner` — can only scan attendance (`/admin/scan`), nothing else
+- `scanner` — can only scan attendance (`/scan`), nothing else
 - `admin` — scanner + People directory + department/seva assignment
 - `super_admin` — admin + can grant/revoke anyone's role (including other
   admins), from the People page in the app

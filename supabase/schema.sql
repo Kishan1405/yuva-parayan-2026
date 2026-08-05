@@ -272,7 +272,9 @@ begin
     select u.id, u.name, u.contact_number, u.mandal_id,
            u.department_id, u.department_role, u.role, u.created_at
     from users u
-    where p_query is null or p_query = '' or u.name ilike '%' || p_query || '%'
+    where p_query is null or p_query = ''
+       or u.name ilike '%' || p_query || '%'
+       or u.contact_number ilike '%' || p_query || '%'
     order by u.mandal_id, u.name;
 end;
 $$;

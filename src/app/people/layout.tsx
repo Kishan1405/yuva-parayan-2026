@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session";
 import { canManagePeople } from "@/lib/admin";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function PeopleLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useSession();
   const router = useRouter();
   const authorized = canManagePeople(user?.role);
