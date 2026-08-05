@@ -2,17 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Phone, Star } from "lucide-react";
+import { ArrowLeft, Phone, Star, UserMinus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useSession } from "@/lib/session";
+import { assignDepartment } from "@/lib/admin";
 import { GlassCard } from "@/components/ui/GlassCard";
 import type { Department, DepartmentRosterEntry, DepartmentTask } from "@/lib/database.types";
 
 export default function DepartmentDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
+  const { deviceToken } = useSession();
   const [department, setDepartment] = useState<Department | null | undefined>(undefined);
   const [members, setMembers] = useState<DepartmentRosterEntry[]>([]);
   const [tasks, setTasks] = useState<DepartmentTask[]>([]);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -32,6 +36,21 @@ export default function DepartmentDetailPage() {
         setTasks(tasksRes.data ?? []);
       });
   }, [slug]);
+
+  async function handleRemove(member: DepartmentRosterEntry) {
+    if (!deviceToken) return;
+    if (!confirm(`Remove ${member.name} from this department?`)) return;
+
+    setRemovingId(member.id);
+    const { error } = await assignDepartment(deviceToken, member.id, null, "member");
+    setRemovingId(null);
+
+    if (error) {
+      alert(error);
+      return;
+    }
+    setMembers((prev) => prev.filter((m) => m.id !== member.id));
+  }
 
   if (department === undefined) {
     return (
@@ -78,7 +97,12 @@ export default function DepartmentDetailPage() {
           <h2 className="mb-3 font-display text-base font-semibold">In-charge</h2>
           <div className="space-y-4">
             {inCharge.map((m) => (
-              <MemberRow key={m.contact_number} member={m} />
+              <MemberRow
+                key={m.id}
+                member={m}
+                onRemove={handleRemove}
+                removing={removingId === m.id}
+              />
             ))}
           </div>
         </div>
@@ -89,7 +113,12 @@ export default function DepartmentDetailPage() {
           <h2 className="mb-3 font-display text-base font-semibold">Members</h2>
           <div className="space-y-4">
             {regular.map((m) => (
-              <MemberRow key={m.contact_number} member={m} />
+              <MemberRow
+                key={m.id}
+                member={m}
+                onRemove={handleRemove}
+                removing={removingId === m.id}
+              />
             ))}
           </div>
         </div>
@@ -136,7 +165,15 @@ export default function DepartmentDetailPage() {
   );
 }
 
-function MemberRow({ member }: { member: DepartmentRosterEntry }) {
+function MemberRow({
+  member,
+  onRemove,
+  removing,
+}: {
+  member: DepartmentRosterEntry;
+  onRemove: (member: DepartmentRosterEntry) => void;
+  removing: boolean;
+}) {
   return (
     <GlassCard className="flex items-center justify-between py-3">
       <div className="flex items-center gap-3">
@@ -152,14 +189,25 @@ function MemberRow({ member }: { member: DepartmentRosterEntry }) {
           )}
         </div>
       </div>
-      {member.contact_number && (
-        <a
-          href={`tel:${member.contact_number}`}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-saffron-deep/10 text-saffron-deep"
+      <div className="flex items-center gap-2">
+        {member.contact_number && (
+          <a
+            href={`tel:${member.contact_number}`}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-saffron-deep/10 text-saffron-deep"
+          >
+            <Phone size={16} />
+          </a>
+        )}
+        <button
+          type="button"
+          onClick={() => onRemove(member)}
+          disabled={removing}
+          aria-label={`Remove ${member.name}`}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-red-500/10 text-red-500 disabled:opacity-40"
         >
-          <Phone size={16} />
-        </a>
-      )}
+          <UserMinus size={16} />
+        </button>
+      </div>
     </GlassCard>
   );
 }

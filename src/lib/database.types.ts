@@ -71,6 +71,7 @@ export type Attendance = {
 };
 
 export type DepartmentRosterEntry = {
+  id: string;
   name: string;
   contact_number: string;
   department_role: MemberRole;

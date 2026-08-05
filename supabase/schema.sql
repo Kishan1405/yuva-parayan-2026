@@ -232,15 +232,16 @@ as $$
   limit 1;
 $$;
 
--- Public roster lookup — anyone can see who's in a department (name +
--- contact only). Not admin-gated: attendees see this on the Departments page.
+-- Department roster lookup, including each member's id so the admin UI can
+-- remove someone from the department (via admin_assign_department below).
+-- The Departments page itself is admin/super_admin-only in the app.
 create or replace function get_department_roster(p_department_id uuid)
-returns table (name text, contact_number text, department_role text)
+returns table (id uuid, name text, contact_number text, department_role text)
 language sql
 security definer
 set search_path = public
 as $$
-  select u.name, u.contact_number, u.department_role
+  select u.id, u.name, u.contact_number, u.department_role
   from users u
   where u.department_id = p_department_id
   order by (u.department_role = 'in-charge') desc, u.name;
