@@ -502,9 +502,9 @@ grant execute on function admin_delete_attendance(uuid, uuid) to anon, authentic
 -- ---------- seed data ----------
 
 insert into mandals (name, sort_order) values
-  ('Mandal 1', 1),
-  ('Mandal 2', 2),
-  ('Mandal 3', 3);
+  ('Pramukh Nagar', 1),
+  ('Gurudev Park', 2),
+  ('Gunatit Nagar', 3);
 
 insert into departments (slug, name, description, sort_order) values
   ('sangeet', 'Sangeet', 'Music and bhajan seva', 1),
