@@ -363,6 +363,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   v_caller_role text;
   v_caller_id uuid;
@@ -392,6 +393,36 @@ begin
   returning * into v_row;
 
   return query select v_row.id, v_row.user_id, v_target_name, v_row.day, v_row.scanned_at, (v_existing.id is not null);
+end;
+$$;
+
+-- Manual attendance entry (no phone/QR to scan). Deliberately minimal: no
+-- role/department exposed, and a 2-character minimum so scanner accounts
+-- can't browse the full attendee list, only look someone specific up.
+create or replace function scan_search_people(p_caller_token uuid, p_query text)
+returns table (id uuid, name text, contact_number text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_role text;
+begin
+  select u.role into v_role from users u where u.device_token = p_caller_token;
+  if v_role is null or v_role not in ('admin', 'super_admin', 'scanner') then
+    raise exception 'Not authorized';
+  end if;
+
+  if p_query is null or length(trim(p_query)) < 2 then
+    return;
+  end if;
+
+  return query
+    select u.id, u.name, u.contact_number
+    from users u
+    where u.name ilike '%' || trim(p_query) || '%' or u.contact_number ilike '%' || trim(p_query) || '%'
+    order by u.name
+    limit 20;
 end;
 $$;
 
@@ -440,6 +471,7 @@ grant execute on function admin_search_people(uuid, text) to anon, authenticated
 grant execute on function admin_assign_department(uuid, uuid, uuid, text) to anon, authenticated;
 grant execute on function admin_set_role(uuid, uuid, text) to anon, authenticated;
 grant execute on function attendance_mark(uuid, uuid, smallint) to anon, authenticated;
+grant execute on function scan_search_people(uuid, text) to anon, authenticated;
 grant execute on function admin_list_attendance(uuid, smallint) to anon, authenticated;
 
 -- ---------- seed data ----------

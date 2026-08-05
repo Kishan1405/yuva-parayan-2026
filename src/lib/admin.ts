@@ -5,6 +5,7 @@ import type {
   AttendanceLogEntry,
   AttendanceMarkResult,
   MemberRole,
+  ScanPerson,
   UserRole,
 } from "./database.types";
 
@@ -68,6 +69,18 @@ export async function markAttendance(
   });
   if (error) return { data: null, error: friendlyError(error.message) };
   return { data: data?.[0] ?? null, error: null };
+}
+
+export async function scanSearchPeople(
+  callerToken: string,
+  query: string
+): Promise<{ data: ScanPerson[]; error: string | null }> {
+  const { data, error } = await supabase.rpc("scan_search_people", {
+    p_caller_token: callerToken,
+    p_query: query,
+  });
+  if (error) return { data: [], error: friendlyError(error.message) };
+  return { data: data ?? [], error: null };
 }
 
 export async function getMyAttendance(

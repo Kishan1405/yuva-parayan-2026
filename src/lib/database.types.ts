@@ -86,6 +86,12 @@ export type AttendanceMarkResult = {
   already_marked: boolean;
 };
 
+export type ScanPerson = {
+  id: string;
+  name: string;
+  contact_number: string;
+};
+
 export type AttendanceLogEntry = {
   attendance_id: string;
   user_id: string;
@@ -159,6 +165,7 @@ export type Database = {
       // wraps the result in an array — even ones that only ever produce one
       // row. lib/admin.ts unwraps that for callers.
       admin_search_people: Fn<{ p_caller_token: string; p_query?: string | null }, AdminPerson[]>;
+      scan_search_people: Fn<{ p_caller_token: string; p_query: string }, ScanPerson[]>;
       admin_assign_department: Fn<
         {
           p_caller_token: string;
