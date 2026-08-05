@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Poppins, Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { InstallPrompt } from "@/components/InstallPrompt";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 const display = Poppins({
   variable: "--font-display",
@@ -18,6 +20,11 @@ const body = Inter({
 export const metadata: Metadata = {
   title: "Yuva Parayan 2026",
   description: "Yuva Parayan 2026 — event companion app",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Yuva Parayan",
+  },
 };
 
 export const viewport: Viewport = {
@@ -35,7 +42,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${display.variable} ${body.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-spiritual">
+        <ServiceWorkerRegister />
         <Providers>{children}</Providers>
+        <InstallPrompt />
       </body>
     </html>
   );
