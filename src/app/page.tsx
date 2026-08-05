@@ -63,7 +63,8 @@ export default function HomePage() {
       animate="show"
       className="space-y-6"
     >
-      <motion.div variants={staggerItem}>
+      {/* On mobile this now lives in the top bar (AppShell); desktop keeps it here. */}
+      <motion.div variants={staggerItem} className="hidden md:block">
         <p className="text-sm text-foreground-muted">Jai Swaminarayan{firstName ? "," : ""}</p>
         <div className="flex items-center gap-2">
           <h1 className="font-display text-2xl font-semibold">{firstName || "Welcome"}</h1>

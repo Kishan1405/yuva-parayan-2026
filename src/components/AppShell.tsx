@@ -1,14 +1,25 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, Images, Users, HeartHandshake, UserRound, ScanLine } from "lucide-react";
+import {
+  Home,
+  Images,
+  Users,
+  HeartHandshake,
+  UserRound,
+  ScanLine,
+  Menu,
+  ShieldCheck,
+} from "lucide-react";
 import { EVENT_NAME } from "@/lib/event";
 import { useSession } from "@/lib/session";
 import { canManagePeople, canScan } from "@/lib/admin";
 import { PageTransition } from "@/components/PageTransition";
+import { MobileSidebar } from "@/components/MobileSidebar";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
@@ -27,11 +38,13 @@ function isActive(pathname: string, href: string) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useSession();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navItems = NAV_ITEMS.filter((item) => {
     if (item.adminOnly && !canManagePeople(user?.role)) return false;
     if (item.scanOnly && !canScan(user?.role)) return false;
     return true;
   });
+  const firstName = user?.name.trim().split(" ")[0] ?? "";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -71,43 +84,47 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] md:px-6 md:pb-12 md:pt-8">
+      {/* Mobile top bar: hamburger left, greeting right */}
+      <header className="sticky top-0 z-40 px-3 pt-3 md:hidden">
+        <div className="glass-nav flex items-center justify-between rounded-2xl px-3 py-2.5">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-foreground"
+          >
+            <Menu size={22} />
+          </button>
+
+          {user && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-foreground-muted">
+                Jai Swaminarayan, <span className="font-semibold text-foreground">{firstName}</span>
+              </span>
+              <span
+                className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${
+                  user.role === "user"
+                    ? "bg-foreground/5 text-foreground-muted"
+                    : "bg-saffron-deep/15 text-saffron-deep"
+                }`}
+              >
+                {user.role !== "user" && <ShieldCheck size={10} />}
+                {user.role.replace("_", " ")}
+              </span>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <MobileSidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        navItems={navItems}
+        pathname={pathname}
+      />
+
+      <main className="mx-auto w-full max-w-4xl flex-1 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4 md:px-6 md:pb-12 md:pt-8">
         <PageTransition>{children}</PageTransition>
       </main>
-
-      {/* Mobile bottom nav */}
-      <nav className="glass-nav fixed inset-x-3 z-40 rounded-3xl px-2 py-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden">
-        <div className="flex items-center justify-between">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const active = isActive(pathname, href);
-            return (
-              <Link key={href} href={href} className="relative flex flex-1 flex-col items-center">
-                {active && (
-                  <motion.span
-                    layoutId="mobile-nav-pill"
-                    className="absolute inset-x-1 inset-y-0 rounded-2xl bg-saffron-deep/10"
-                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                  />
-                )}
-                <motion.span
-                  className="relative z-10 flex flex-col items-center gap-1 py-2 text-[11px] font-medium"
-                  animate={active ? { y: -1, scale: 1.06 } : { y: 0, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                >
-                  <Icon
-                    size={22}
-                    strokeWidth={active ? 2.4 : 2}
-                    className={active ? "text-saffron-deep" : "text-foreground-muted"}
-                  />
-                  <span className={active ? "text-saffron-deep" : "text-foreground-muted"}>
-                    {label}
-                  </span>
-                </motion.span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
     </div>
   );
 }
