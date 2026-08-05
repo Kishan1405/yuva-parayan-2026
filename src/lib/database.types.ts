@@ -187,6 +187,7 @@ export type Database = {
         { p_caller_token: string; p_day?: number | null },
         AttendanceLogEntry[]
       >;
+      admin_delete_attendance: Fn<{ p_caller_token: string; p_attendance_id: string }, null>;
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

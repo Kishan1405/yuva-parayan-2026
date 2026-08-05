@@ -105,6 +105,18 @@ export async function listAttendance(
   return { data: data ?? [], error: null };
 }
 
+export async function deleteAttendance(
+  callerToken: string,
+  attendanceId: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc("admin_delete_attendance", {
+    p_caller_token: callerToken,
+    p_attendance_id: attendanceId,
+  });
+  if (error) return { error: friendlyError(error.message) };
+  return { error: null };
+}
+
 export const ADMIN_ROLES: UserRole[] = ["admin", "super_admin"];
 export const SCAN_ROLES: UserRole[] = ["admin", "super_admin", "scanner"];
 

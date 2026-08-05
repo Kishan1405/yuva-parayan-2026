@@ -458,6 +458,30 @@ begin
 end;
 $$;
 
+-- Delete an accidental attendance entry. Same role set as attendance_mark -
+-- a scanner should be able to undo their own accidental scan.
+create or replace function admin_delete_attendance(p_caller_token uuid, p_attendance_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_role text;
+begin
+  select u.role into v_role from users u where u.device_token = p_caller_token;
+  if v_role is null or v_role not in ('admin', 'super_admin', 'scanner') then
+    raise exception 'Not authorized';
+  end if;
+
+  delete from attendance where id = p_attendance_id;
+
+  if not found then
+    raise exception 'Entry not found';
+  end if;
+end;
+$$;
+
 -- ---------- allow the public client (anon key) to call these ----------
 
 grant execute on function signup_user(text, text, uuid) to anon, authenticated;
@@ -473,6 +497,7 @@ grant execute on function admin_set_role(uuid, uuid, text) to anon, authenticate
 grant execute on function attendance_mark(uuid, uuid, smallint) to anon, authenticated;
 grant execute on function scan_search_people(uuid, text) to anon, authenticated;
 grant execute on function admin_list_attendance(uuid, smallint) to anon, authenticated;
+grant execute on function admin_delete_attendance(uuid, uuid) to anon, authenticated;
 
 -- ---------- seed data ----------
 

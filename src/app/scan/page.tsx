@@ -10,11 +10,12 @@ import {
   RotateCcw,
   ScanLine,
   Search,
+  UserMinus,
   UserPlus,
   XCircle,
 } from "lucide-react";
 import { useSession } from "@/lib/session";
-import { markAttendance, listAttendance, scanSearchPeople } from "@/lib/admin";
+import { markAttendance, listAttendance, scanSearchPeople, deleteAttendance } from "@/lib/admin";
 import { EVENT_DAYS } from "@/lib/event";
 import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -64,6 +65,7 @@ export default function ScanPage() {
   const [entries, setEntries] = useState<AttendanceLogEntry[] | null>(null);
   const [dayFilter, setDayFilter] = useState<number | "all">("all");
   const [logError, setLogError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const fetchingRef = useRef(false);
 
   useEffect(() => {
@@ -151,6 +153,21 @@ export default function ScanPage() {
     await recordScan(person.id);
     setManualQuery("");
     setManualResults(null);
+  }
+
+  async function handleDeleteEntry(entry: AttendanceLogEntry) {
+    if (!deviceToken) return;
+    if (!confirm(`Remove ${entry.attendee_name}'s Day ${entry.day} check-in?`)) return;
+
+    setDeletingId(entry.attendance_id);
+    const { error } = await deleteAttendance(deviceToken, entry.attendance_id);
+    setDeletingId(null);
+
+    if (error) {
+      alert(error);
+      return;
+    }
+    setEntries((prev) => prev?.filter((e) => e.attendance_id !== entry.attendance_id) ?? prev);
   }
 
   useEffect(() => {
@@ -424,6 +441,15 @@ export default function ScanPage() {
                         {formatTime(e.scanned_at)}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteEntry(e)}
+                      disabled={deletingId === e.attendance_id}
+                      aria-label={`Remove ${e.attendee_name}'s check-in`}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500 disabled:opacity-40"
+                    >
+                      <UserMinus size={16} />
+                    </button>
                   </GlassCard>
                 </motion.div>
               ))}
