@@ -521,7 +521,8 @@ insert into departments (slug, name, description, sort_order) values
   ('photography', 'Photography', 'Event photography and coverage', 10),
   ('decoration', 'Decoration', 'Venue and stage decoration', 11),
   ('sant-sarbhara', 'Sant Sarbhara', 'Hospitality and care for the Sants', 12),
-  ('sant-swagat', 'Sant Swagat', 'Reception and welcome for the Sants', 13);
+  ('sant-swagat', 'Sant Swagat', 'Reception and welcome for the Sants', 13),
+  ('it', 'IT Department', 'App, website, and technical support', 14);
 
 insert into feedback_questions (question_text, question_type, sort_order) values
   ('How would you rate today overall?', 'rating', 1),
