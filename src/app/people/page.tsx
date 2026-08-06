@@ -218,7 +218,12 @@ export default function PeoplePage() {
       {!loading &&
         grouped.map(([mandal, list]) => (
           <div key={mandal}>
-            <h2 className="mb-3 font-display text-base font-semibold">{mandal}</h2>
+            <div className="mb-3 flex items-center gap-2">
+              <h2 className="font-display text-base font-semibold">{mandal}</h2>
+              <span className="rounded-full bg-saffron-deep/12 px-2 py-0.5 text-[11px] font-semibold text-saffron-deep">
+                {list.length}
+              </span>
+            </div>
             <motion.div
               variants={staggerContainer}
               initial="hidden"
