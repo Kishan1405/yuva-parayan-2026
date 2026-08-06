@@ -33,6 +33,10 @@ export default function PeoplePage() {
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
 
+  const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all"); // "all" | "none" | department id
+  const [mandalFilter, setMandalFilter] = useState<string>("all"); // "all" | "none" | mandal id
+
   useEffect(() => {
     supabase
       .from("mandals")
@@ -64,16 +68,35 @@ export default function PeoplePage() {
 
   const mandalName = (id: string | null) => mandals.find((m) => m.id === id)?.name ?? "No Mandal";
 
+  const filtersActive = roleFilter !== "all" || departmentFilter !== "all" || mandalFilter !== "all";
+
+  const filteredPeople = useMemo(() => {
+    return people.filter((p) => {
+      if (roleFilter !== "all" && p.role !== roleFilter) return false;
+      if (departmentFilter === "none" && p.department_id) return false;
+      if (
+        departmentFilter !== "all" &&
+        departmentFilter !== "none" &&
+        p.department_id !== departmentFilter
+      )
+        return false;
+      if (mandalFilter === "none" && p.mandal_id) return false;
+      if (mandalFilter !== "all" && mandalFilter !== "none" && p.mandal_id !== mandalFilter)
+        return false;
+      return true;
+    });
+  }, [people, roleFilter, departmentFilter, mandalFilter]);
+
   const grouped = useMemo(() => {
     const map = new Map<string, AdminPerson[]>();
-    for (const person of people) {
+    for (const person of filteredPeople) {
       const key = mandalName(person.mandal_id);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(person);
     }
     return Array.from(map.entries());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people, mandals]);
+  }, [filteredPeople, mandals]);
 
   async function handleAssignDepartment(
     personId: string,
@@ -121,7 +144,9 @@ export default function PeoplePage() {
         <Users className="text-saffron-deep" size={22} />
         <h1 className="font-display text-2xl font-semibold">People</h1>
       </div>
-      <p className="-mt-4 text-sm text-foreground-muted">{people.length} people</p>
+      <p className="-mt-4 text-sm text-foreground-muted">
+        {filteredPeople.length} {filtersActive && `of ${people.length}`} people
+      </p>
 
       <div className="relative">
         <Search
@@ -136,6 +161,51 @@ export default function PeoplePage() {
           autoFocus
         />
       </div>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as UserRole | "all")}>
+          <option value="all">All roles</option>
+          {ROLE_OPTIONS.map((r) => (
+            <option key={r.value} value={r.value}>
+              {r.label}
+            </option>
+          ))}
+        </Select>
+
+        <Select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)}>
+          <option value="all">All departments</option>
+          <option value="none">No department</option>
+          {departments.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </Select>
+
+        <Select value={mandalFilter} onChange={(e) => setMandalFilter(e.target.value)}>
+          <option value="all">All Mandals</option>
+          <option value="none">No Mandal</option>
+          {mandals.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      {filtersActive && (
+        <button
+          type="button"
+          onClick={() => {
+            setRoleFilter("all");
+            setDepartmentFilter("all");
+            setMandalFilter("all");
+          }}
+          className="-mt-4 text-xs font-medium text-saffron-deep"
+        >
+          Clear filters
+        </button>
+      )}
 
       {loading && (
         <div className="space-y-3">
@@ -175,7 +245,7 @@ export default function PeoplePage() {
           </div>
         ))}
 
-      {!loading && people.length === 0 && (
+      {!loading && filteredPeople.length === 0 && (
         <p className="py-8 text-center text-sm text-foreground-muted">No one found.</p>
       )}
     </div>
