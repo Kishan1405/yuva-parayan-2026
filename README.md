@@ -71,15 +71,16 @@ directly in the Supabase table editor — not built into the admin UI yet.
    project (or reuse one), enable the **Google Drive API**, and create an
    **API key** (Credentials → Create Credentials → API key). You can restrict
    it to the Drive API for safety.
-2. Create/choose the Drive folder with your event photos, and share it as
-   **"Anyone with the link can view"** — this is required for the API key
-   (no OAuth) to list its contents.
-3. Get the folder ID from its URL:
+2. For every Drive folder with event photos, share it as **"Anyone with the
+   link can view"** — this is required for the API key (no OAuth) to list
+   its contents.
+3. Get each folder's ID from its URL:
    `https://drive.google.com/drive/folders/`**`THIS_PART`**
-4. Add both to `.env.local`:
+4. Add both to `.env.local` — `GOOGLE_DRIVE_FOLDER_IDS` is comma-separated,
+   so multiple folders (different years/albums) all show up in one gallery:
    ```
    GOOGLE_DRIVE_API_KEY=...
-   GOOGLE_DRIVE_FOLDER_ID=...
+   GOOGLE_DRIVE_FOLDER_IDS=folder-id-one,folder-id-two
    ```
 
 ### 3. Run it
@@ -131,5 +132,5 @@ the People page — no more SQL needed.
 
 Push to a Git repo and deploy on [Vercel](https://vercel.com/new) — add the
 same env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-`GOOGLE_DRIVE_API_KEY`, `GOOGLE_DRIVE_FOLDER_ID`) in the Vercel project
+`GOOGLE_DRIVE_API_KEY`, `GOOGLE_DRIVE_FOLDER_IDS`) in the Vercel project
 settings.
