@@ -35,6 +35,7 @@ const QR_PREFIX = "YP2026:";
 const RESUME_DELAY_MS = 1200;
 const LOG_REFRESH_MS = 1000;
 const SEARCH_DEBOUNCE_MS = 250;
+const RECENT_SCANS_LIMIT = 3;
 
 type Day = 1 | 2 | 3;
 
@@ -100,6 +101,31 @@ export default function ScanPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const fetchingRef = useRef(false);
 
+  // ---- attendee log search: finds anyone in the system by name/contact,
+  // not just people who already have a check-in — status is then read off
+  // the already-polled `entries` below, so a search costs one lightweight
+  // RPC call and zero extra round trips for attendance status. ----
+  const [logQuery, setLogQuery] = useState("");
+  const [logSearchResults, setLogSearchResults] = useState<ScanPerson[] | null>(null);
+  const [logSearching, setLogSearching] = useState(false);
+
+  useEffect(() => {
+    if (!deviceToken) return;
+    const q = logQuery.trim();
+    if (q.length < 2) {
+      setLogSearchResults(null);
+      setLogSearching(false);
+      return;
+    }
+    setLogSearching(true);
+    const t = setTimeout(async () => {
+      const { data } = await scanSearchPeople(deviceToken, q);
+      setLogSearchResults(data);
+      setLogSearching(false);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [deviceToken, logQuery]);
+
   useEffect(() => {
     dayRef.current = day;
   }, [day]);
@@ -108,24 +134,23 @@ export default function ScanPage() {
     if (!deviceToken || dayRef.current === null) return;
     const { data, error } = await markAttendance(deviceToken, targetUserId, dayRef.current);
 
-    setResults((prev) => [
-      data
-        ? {
-            id: `${data.attendance_id}-${Date.now()}`,
-            name: data.target_name,
-            status: data.already_marked ? "duplicate" : "ok",
-            message: data.already_marked
-              ? `Already checked in for Day ${data.day}`
-              : `Checked in — Day ${data.day}`,
-          }
-        : {
-            id: `err-${Date.now()}`,
-            name: "Scan failed",
-            status: "error",
-            message: error ?? "Something went wrong.",
-          },
-      ...prev,
-    ]);
+    const newResult: ScanResult = data
+      ? {
+          id: `${data.attendance_id}-${Date.now()}`,
+          name: data.target_name,
+          status: data.already_marked ? "duplicate" : "ok",
+          message: data.already_marked
+            ? `Already checked in for Day ${data.day}`
+            : `Checked in — Day ${data.day}`,
+        }
+      : {
+          id: `err-${Date.now()}`,
+          name: "Scan failed",
+          status: "error",
+          message: error ?? "Something went wrong.",
+        };
+
+    setResults((prev) => [newResult, ...prev].slice(0, RECENT_SCANS_LIMIT));
   }
 
   // Camera only starts once a day has been chosen — re-runs on the
@@ -290,6 +315,8 @@ export default function ScanPage() {
 
   const visible =
     dayFilter === "all" ? entries : entries?.filter((e) => e.day === dayFilter) ?? null;
+
+  const searchActive = logQuery.trim().length >= 2;
 
   return (
     <div className="space-y-6">
@@ -542,75 +569,169 @@ export default function ScanPage() {
           ))}
         </motion.div>
 
-        <SegmentedControl
-          options={[
-            { value: "all", label: "All" },
-            ...EVENT_DAYS.map((d) => ({ value: String(d.day), label: `Day ${d.day}` })),
-          ]}
-          value={String(dayFilter)}
-          onChange={(v) => setDayFilter(v === "all" ? "all" : Number(v))}
-        />
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted"
+            size={16}
+          />
+          <Input
+            value={logQuery}
+            onChange={(e) => setLogQuery(e.target.value)}
+            placeholder="Find anyone by name or contact number…"
+            className="pl-10"
+          />
+        </div>
+
+        {!searchActive && (
+          <SegmentedControl
+            options={[
+              { value: "all", label: "All" },
+              ...EVENT_DAYS.map((d) => ({ value: String(d.day), label: `Day ${d.day}` })),
+            ]}
+            value={String(dayFilter)}
+            onChange={(v) => setDayFilter(v === "all" ? "all" : Number(v))}
+          />
+        )}
 
         {logError && (
           <GlassCard className="text-center text-sm text-foreground-muted">{logError}</GlassCard>
         )}
 
-        {visible === null && !logError && (
-          <div className="space-y-3">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="glass-card h-16 animate-pulse rounded-3xl" />
-            ))}
-          </div>
+        {/* ---------- search mode: any person, checked in or not ---------- */}
+        {searchActive && (
+          <>
+            {logSearching && (
+              <p className="py-6 text-center text-xs text-foreground-muted">Searching…</p>
+            )}
+
+            {!logSearching && logSearchResults && logSearchResults.length === 0 && (
+              <p className="py-8 text-center text-sm text-foreground-muted">No one found.</p>
+            )}
+
+            {!logSearching && logSearchResults && logSearchResults.length > 0 && (
+              <div className="space-y-3">
+                <AnimatePresence initial={false}>
+                  {logSearchResults.map((p) => {
+                    const personEntries = entries?.filter((e) => e.user_id === p.id) ?? [];
+                    const relevant =
+                      dayFilter === "all"
+                        ? personEntries
+                        : personEntries.filter((e) => e.day === dayFilter);
+
+                    return (
+                      <motion.div
+                        key={p.id}
+                        layout
+                        initial={{ opacity: 0, y: -16, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.97 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                      >
+                        <GlassCard className="flex items-center gap-3 py-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold">{p.name}</p>
+                            <p className="truncate text-xs text-foreground-muted">
+                              {p.contact_number}
+                            </p>
+                          </div>
+
+                          {relevant.length === 0 ? (
+                            <span className="shrink-0 rounded-full bg-foreground/5 px-2.5 py-1 text-[11px] font-medium text-foreground-muted">
+                              Not checked in{dayFilter !== "all" && ` — Day ${dayFilter}`}
+                            </span>
+                          ) : (
+                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                              {relevant.map((e) => (
+                                <span
+                                  key={e.attendance_id}
+                                  className="flex items-center gap-1 rounded-full bg-saffron-deep/12 py-0.5 pl-2 pr-1 text-[11px] font-semibold text-saffron-deep"
+                                >
+                                  <CheckCircle2 size={11} />
+                                  Day {e.day}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteEntry(e)}
+                                    disabled={deletingId === e.attendance_id}
+                                    aria-label={`Remove ${p.name}'s Day ${e.day} check-in`}
+                                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-saffron-deep/70 hover:text-red-500 disabled:opacity-40"
+                                  >
+                                    <UserMinus size={12} />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </GlassCard>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            )}
+          </>
         )}
 
-        {visible && visible.length === 0 && (
-          <p className="py-8 text-center text-sm text-foreground-muted">No check-ins yet.</p>
-        )}
+        {/* ---------- normal mode: day-filtered attendance list ---------- */}
+        {!searchActive && (
+          <>
+            {visible === null && !logError && (
+              <div className="space-y-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="glass-card h-16 animate-pulse rounded-3xl" />
+                ))}
+              </div>
+            )}
 
-        {visible && visible.length > 0 && (
-          <div className="space-y-3">
-            <AnimatePresence initial={false}>
-              {visible.map((e) => (
-                <motion.div
-                  key={e.attendance_id}
-                  layout
-                  initial={{ opacity: 0, y: -16, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.97 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                >
-                  <GlassCard className="flex items-center gap-3 py-3">
-                    <CheckCircle2 className="shrink-0 text-saffron-deep" size={20} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{e.attendee_name}</p>
-                      <p className="truncate text-xs text-foreground-muted">
-                        {e.contact_number}
-                        {e.scanned_by_name && <> · scanned by {e.scanned_by_name}</>}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <span className="rounded-full bg-saffron-deep/12 px-2 py-0.5 text-[11px] font-semibold text-saffron-deep">
-                        Day {e.day}
-                      </span>
-                      <p className="mt-1 flex items-center gap-1 text-[11px] text-foreground-muted">
-                        <Clock size={11} />
-                        {formatTime(e.scanned_at)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteEntry(e)}
-                      disabled={deletingId === e.attendance_id}
-                      aria-label={`Remove ${e.attendee_name}'s check-in`}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500 disabled:opacity-40"
+            {visible && visible.length === 0 && (
+              <p className="py-8 text-center text-sm text-foreground-muted">No check-ins yet.</p>
+            )}
+
+            {visible && visible.length > 0 && (
+              <div className="space-y-3">
+                <AnimatePresence initial={false}>
+                  {visible.map((e) => (
+                    <motion.div
+                      key={e.attendance_id}
+                      layout
+                      initial={{ opacity: 0, y: -16, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.97 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 32 }}
                     >
-                      <UserMinus size={16} />
-                    </button>
-                  </GlassCard>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
+                      <GlassCard className="flex items-center gap-3 py-3">
+                        <CheckCircle2 className="shrink-0 text-saffron-deep" size={20} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">{e.attendee_name}</p>
+                          <p className="truncate text-xs text-foreground-muted">
+                            {e.contact_number}
+                            {e.scanned_by_name && <> · scanned by {e.scanned_by_name}</>}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <span className="rounded-full bg-saffron-deep/12 px-2 py-0.5 text-[11px] font-semibold text-saffron-deep">
+                            Day {e.day}
+                          </span>
+                          <p className="mt-1 flex items-center gap-1 text-[11px] text-foreground-muted">
+                            <Clock size={11} />
+                            {formatTime(e.scanned_at)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEntry(e)}
+                          disabled={deletingId === e.attendance_id}
+                          aria-label={`Remove ${e.attendee_name}'s check-in`}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500 disabled:opacity-40"
+                        >
+                          <UserMinus size={16} />
+                        </button>
+                      </GlassCard>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
