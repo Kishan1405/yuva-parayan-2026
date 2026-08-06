@@ -5,7 +5,9 @@ import { motion } from "framer-motion";
 import { BarChart3, CalendarCheck, ClipboardList, LayoutGrid, Users } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { getAnalytics } from "@/lib/admin";
+import { EVENT_DAYS, currentEventDay } from "@/lib/event";
 import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { BarChart } from "@/components/charts/BarChart";
 import { DonutChart, type DonutDatum } from "@/components/charts/DonutChart";
 import type { AnalyticsData } from "@/lib/database.types";
@@ -40,6 +42,9 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mandalAttendanceDay, setMandalAttendanceDay] = useState<number>(
+    currentEventDay()?.day ?? 1
+  );
 
   useEffect(() => {
     if (!deviceToken) return;
@@ -56,6 +61,14 @@ export default function AnalyticsPage() {
       label: `Day ${d.day}`,
       value: d.count,
     })) ?? [];
+
+  // Drop the "No Mandal" bucket unless it actually has someone in it — it's
+  // usually empty since Mandal is required at signup.
+  const mandalAttendanceData =
+    data?.attendance_by_mandal_and_day
+      .filter((r) => r.day === mandalAttendanceDay)
+      .filter((r) => r.mandal_id !== null || r.count > 0)
+      .map((r) => ({ key: r.mandal_id ?? "none", label: r.name, value: r.count })) ?? [];
 
   const deptData =
     data?.people_by_department.map((d) => ({
@@ -125,6 +138,25 @@ export default function AnalyticsPage() {
               <h2 className="mb-1 font-display text-base font-semibold">Daily attendance</h2>
               <p className="mb-5 text-xs text-foreground-muted">Check-ins scanned per day</p>
               <BarChart data={dayData} orientation="vertical" height={180} />
+            </GlassCard>
+          </motion.div>
+
+          <motion.div variants={staggerItem}>
+            <GlassCard>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <h2 className="font-display text-base font-semibold">Attendance by Mandal</h2>
+              </div>
+              <p className="mb-4 text-xs text-foreground-muted">
+                Check-ins per Mandal for the selected day
+              </p>
+              <div className="mb-5">
+                <SegmentedControl
+                  options={EVENT_DAYS.map((d) => ({ value: String(d.day), label: `Day ${d.day}` }))}
+                  value={String(mandalAttendanceDay)}
+                  onChange={(v) => setMandalAttendanceDay(Number(v))}
+                />
+              </div>
+              <BarChart data={mandalAttendanceData} orientation="vertical" height={180} />
             </GlassCard>
           </motion.div>
 

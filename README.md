@@ -28,15 +28,17 @@ Mandal or department assignment.
 - **Scan** (`/scan`, own bottom-nav tab) — visible to `scanner`, `admin`, and
   `super_admin`. One page: camera-based QR scanner up top (per-day, records a
   check-in against the scanned person's account), and the live Attendee Logs
-  (per-day counts + full scan history, auto-refreshing every second) below it.
+  below it — per-day counts, a Mandal filter, and a search bar that finds
+  anyone in the system (checked in or not), auto-refreshing every second.
 - **People** (`/people`, own nav tab) — visible to `admin` and `super_admin`
   only. Search everyone by name or contact number, grouped by Mandal (Mandal
   shown on every result too); assign/remove someone's department + seva role
   (member/in-charge); `super_admin` can also set anyone's access level
   (user/scanner/admin/super_admin).
 - **Analytics** (`/analytics`, own nav tab) — visible to `admin` and
-  `super_admin` only. Daily attendance (bar chart), people by Mandal (donut),
-  people by department (bar chart), and role counts — all pulled from one
+  `super_admin` only. Daily attendance (bar chart), attendance by Mandal
+  (bar chart with a Day 1/2/3 toggle), people by Mandal (donut), people by
+  department (bar chart), and role counts — all pulled from one
   pre-aggregated `admin_analytics()` RPC so the page stays fast on a slow
   connection.
 

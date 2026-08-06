@@ -97,6 +97,7 @@ export default function ScanPage() {
   // ---- attendee log ----
   const [entries, setEntries] = useState<AttendanceLogEntry[] | null>(null);
   const [dayFilter, setDayFilter] = useState<number | "all">("all");
+  const [mandalFilter, setMandalFilter] = useState<string>("all"); // "all" | mandal id
   const [logError, setLogError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const fetchingRef = useRef(false);
@@ -308,13 +309,20 @@ export default function ScanPage() {
     };
   }, [deviceToken]);
 
+  // Day tiles + the list both respect the Mandal filter, so the tiles
+  // double as the "count for this Mandal" the filter needs to show.
+  const mandalFilteredEntries =
+    mandalFilter === "all" ? entries : entries?.filter((e) => e.mandal_id === mandalFilter) ?? null;
+
   const counts = EVENT_DAYS.map((d) => ({
     day: d.day,
-    count: entries?.filter((e) => e.day === d.day).length ?? 0,
+    count: mandalFilteredEntries?.filter((e) => e.day === d.day).length ?? 0,
   }));
 
   const visible =
-    dayFilter === "all" ? entries : entries?.filter((e) => e.day === dayFilter) ?? null;
+    dayFilter === "all"
+      ? mandalFilteredEntries
+      : mandalFilteredEntries?.filter((e) => e.day === dayFilter) ?? null;
 
   const searchActive = logQuery.trim().length >= 2;
 
@@ -568,6 +576,26 @@ export default function ScanPage() {
             </GlassCard>
           ))}
         </motion.div>
+
+        {!searchActive && (
+          <div className="flex items-center gap-2">
+            <Select
+              value={mandalFilter}
+              onChange={(e) => setMandalFilter(e.target.value)}
+              className="flex-1"
+            >
+              <option value="all">All Mandals</option>
+              {mandals.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </Select>
+            <span className="shrink-0 whitespace-nowrap text-xs text-foreground-muted">
+              {visible?.length ?? 0} check-in{visible?.length === 1 ? "" : "s"}
+            </span>
+          </div>
+        )}
 
         <div className="relative">
           <Search

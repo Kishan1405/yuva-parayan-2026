@@ -97,6 +97,7 @@ export type AttendanceLogEntry = {
   user_id: string;
   attendee_name: string;
   contact_number: string;
+  mandal_id: string | null;
   day: number;
   scanned_at: string;
   scanned_by_name: string | null;
@@ -122,6 +123,12 @@ export type WallPost = {
 
 export type AttendanceByDay = { day: number; count: number };
 export type PeopleByMandal = { mandal_id: string | null; name: string; count: number };
+export type AttendanceByMandalAndDay = {
+  mandal_id: string | null;
+  name: string;
+  day: number;
+  count: number;
+};
 export type PeopleByDepartment = { department_id: string; name: string; count: number };
 export type PeopleByRole = { role: UserRole; count: number };
 
@@ -131,6 +138,7 @@ export type AnalyticsData = {
   total_checkins: number;
   attendance_by_day: AttendanceByDay[];
   people_by_mandal: PeopleByMandal[];
+  attendance_by_mandal_and_day: AttendanceByMandalAndDay[];
   people_by_department: PeopleByDepartment[];
   unassigned_department_count: number;
   people_by_role: PeopleByRole[];

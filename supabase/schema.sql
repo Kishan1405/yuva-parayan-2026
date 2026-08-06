@@ -464,6 +464,7 @@ returns table (
   user_id uuid,
   attendee_name text,
   contact_number text,
+  mandal_id uuid,
   day smallint,
   scanned_at timestamptz,
   scanned_by_name text
@@ -481,7 +482,7 @@ begin
   end if;
 
   return query
-    select a.id, a.user_id, u.name, u.contact_number, a.day, a.scanned_at, su.name
+    select a.id, a.user_id, u.name, u.contact_number, u.mandal_id, a.day, a.scanned_at, su.name
     from attendance a
     join users u on u.id = a.user_id
     left join users su on su.id = a.scanned_by
@@ -547,6 +548,26 @@ begin
                order by coalesce(m.sort_order, 999999)), '[]'::jsonb)
       from (select mandal_id, count(*) cnt from users group by mandal_id) t
       left join mandals m on m.id = t.mandal_id
+    ),
+
+    -- Cross-tab of attendance count by Mandal x day, including zero counts,
+    -- for the Analytics page's Mandal-wise chart + day toggle.
+    'attendance_by_mandal_and_day', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'mandal_id', mm.mandal_id, 'name', mm.name, 'day', d.day, 'count', coalesce(t.cnt, 0)
+             ) order by mm.sort_order, d.day), '[]'::jsonb)
+      from (
+        select m.id as mandal_id, m.name, m.sort_order from mandals m
+        union all
+        select null::uuid, 'No Mandal', 999999
+      ) mm
+      cross join generate_series(1, 3) as d(day)
+      left join (
+        select u.mandal_id, a.day, count(*) cnt
+        from attendance a
+        join users u on u.id = a.user_id
+        group by u.mandal_id, a.day
+      ) t on t.mandal_id is not distinct from mm.mandal_id and t.day = d.day
     ),
 
     'people_by_department', (
