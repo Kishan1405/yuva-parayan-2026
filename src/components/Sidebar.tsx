@@ -12,7 +12,10 @@ interface NavItem {
   icon: LucideIcon;
 }
 
-export function MobileSidebar({
+// Fixed hamburger-triggered sidebar, shared by every breakpoint — the
+// desktop top nav used to list every item in a row and ran out of room as
+// admin-only tabs were added; the sidebar has no such ceiling.
+export function Sidebar({
   open,
   onClose,
   navItems,
@@ -30,7 +33,7 @@ export function MobileSidebar({
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-50">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -44,7 +47,7 @@ export function MobileSidebar({
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", stiffness: 380, damping: 38 }}
-            className="glass-nav absolute inset-y-0 left-0 flex w-[78%] max-w-xs flex-col rounded-r-3xl p-4"
+            className="glass-nav fixed inset-y-0 left-0 flex w-[78%] max-w-xs flex-col rounded-r-3xl p-4"
           >
             <div className="mb-6 flex items-center justify-between">
               <div className="flex items-center gap-2.5">

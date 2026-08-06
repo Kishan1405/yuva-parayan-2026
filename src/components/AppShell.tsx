@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   Home,
   Images,
@@ -21,7 +20,7 @@ import { EVENT_NAME } from "@/lib/event";
 import { useSession } from "@/lib/session";
 import { canManagePeople, canScan } from "@/lib/admin";
 import { PageTransition } from "@/components/PageTransition";
-import { MobileSidebar } from "@/components/MobileSidebar";
+import { Sidebar } from "@/components/Sidebar";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
@@ -33,11 +32,6 @@ const NAV_ITEMS = [
   { href: "/reflect", label: "Reflect", icon: HeartHandshake },
   { href: "/profile", label: "Profile", icon: UserRound },
 ];
-
-function isActive(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
-  return pathname.startsWith(href);
-}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -52,52 +46,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Desktop top nav */}
-      <header className="sticky top-0 z-40 hidden md:block">
-        <div className="glass-nav mx-auto mt-4 flex w-full max-w-4xl items-center justify-between rounded-2xl px-6 py-3">
-          <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/logo.png" alt="" width={30} height={37} className="rounded-md" />
-            <span className="font-display text-lg font-semibold text-gradient-saffron">
-              {EVENT_NAME}
-            </span>
-          </Link>
-          <nav className="flex items-center gap-1">
-            {navItems.map(({ href, label, icon: Icon }) => {
-              const active = isActive(pathname, href);
-              return (
-                <Link key={href} href={href} className="relative px-1 py-1">
-                  {active && (
-                    <motion.span
-                      layoutId="desktop-nav-pill"
-                      className="absolute inset-0 rounded-xl bg-saffron-deep/15"
-                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                    />
-                  )}
-                  <span
-                    className={`relative z-10 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                      active ? "text-saffron-deep" : "text-foreground-muted hover:text-foreground"
-                    }`}
-                  >
-                    <Icon size={18} strokeWidth={2} />
-                    {label}
-                  </span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-      </header>
-
-      {/* Mobile top bar: hamburger left, greeting right */}
-      <header className="sticky top-0 z-40 px-3 pt-3 md:hidden">
-        <div className="glass-nav flex items-center justify-between rounded-2xl px-3 py-2.5">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open menu"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-foreground"
-          >
-            <Menu size={22} />
-          </button>
+      {/* One hamburger-triggered top bar at every breakpoint — the old
+          desktop row of nav links ran out of room as admin-only tabs were
+          added, so navigation now always lives in the Sidebar instead. */}
+      <header className="sticky top-0 z-40 px-3 pt-3 md:mx-auto md:mt-4 md:w-full md:max-w-4xl md:px-0">
+        <div className="glass-nav flex items-center justify-between rounded-2xl px-3 py-2.5 md:px-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-foreground"
+            >
+              <Menu size={22} />
+            </button>
+            <Link href="/" className="hidden items-center gap-2.5 md:flex">
+              <Image src="/logo.png" alt="" width={28} height={34} className="rounded-md" />
+              <span className="font-display text-base font-semibold text-gradient-saffron">
+                {EVENT_NAME}
+              </span>
+            </Link>
+          </div>
 
           {user && (
             <div className="flex items-center gap-2">
@@ -119,7 +87,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <MobileSidebar
+      <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         navItems={navItems}
