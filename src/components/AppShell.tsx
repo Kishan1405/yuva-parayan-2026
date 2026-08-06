@@ -60,7 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Menu size={22} />
             </button>
             <Link href="/" className="hidden items-center gap-2.5 md:flex">
-              <Image src="/logo.png" alt="" width={28} height={34} className="rounded-md" />
+              <Image src="/logo.png" alt="" width={32} height={32} className="rounded-md" />
               <span className="font-display text-base font-semibold text-gradient-saffron">
                 {EVENT_NAME}
               </span>

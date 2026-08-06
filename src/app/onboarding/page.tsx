@@ -32,9 +32,9 @@ export default function OnboardingPage() {
             initial={{ scale: 0.6, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.1 }}
-            className="mx-auto mb-4 flex h-20 w-[66px] items-center justify-center overflow-hidden rounded-2xl shadow-lg shadow-saffron-deep/20"
+            className="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl shadow-lg shadow-saffron-deep/20"
           >
-            <Image src="/logo.png" alt="BAPS Swaminarayan" width={132} height={162} priority />
+            <Image src="/logo.png" alt="" width={160} height={160} priority />
           </motion.div>
           <h1 className="font-display text-2xl font-semibold text-gradient-saffron">
             {EVENT_NAME}
