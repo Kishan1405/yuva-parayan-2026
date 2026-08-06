@@ -34,6 +34,11 @@ Mandal or department assignment.
   shown on every result too); assign/remove someone's department + seva role
   (member/in-charge); `super_admin` can also set anyone's access level
   (user/scanner/admin/super_admin).
+- **Analytics** (`/analytics`, own nav tab) — visible to `admin` and
+  `super_admin` only. Daily attendance (bar chart), people by Mandal (donut),
+  people by department (bar chart), and role counts — all pulled from one
+  pre-aggregated `admin_analytics()` RPC so the page stays fast on a slow
+  connection.
 
 Editing departments/tasks/feedback questions/Mandals themselves still happens
 directly in the Supabase table editor — not built into the admin UI yet.

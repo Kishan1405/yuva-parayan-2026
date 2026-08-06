@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import type {
   AdminPerson,
+  AnalyticsData,
   AppUser,
   Attendance,
   AttendanceLogEntry,
@@ -26,6 +27,16 @@ export async function searchPeople(
   });
   if (error) return { data: [], error: friendlyError(error.message) };
   return { data: data ?? [], error: null };
+}
+
+export async function getAnalytics(
+  callerToken: string
+): Promise<{ data: AnalyticsData | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("admin_analytics", {
+    p_caller_token: callerToken,
+  });
+  if (error) return { data: null, error: friendlyError(error.message) };
+  return { data: data ?? null, error: null };
 }
 
 export async function assignDepartment(

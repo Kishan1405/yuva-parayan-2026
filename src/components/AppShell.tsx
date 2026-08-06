@@ -15,6 +15,7 @@ import {
   Contact,
   Menu,
   ShieldCheck,
+  BarChart3,
 } from "lucide-react";
 import { EVENT_NAME } from "@/lib/event";
 import { useSession } from "@/lib/session";
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { href: "/memories", label: "Memories", icon: Images },
   { href: "/departments", label: "Departments", icon: Users, adminOnly: true },
   { href: "/people", label: "People", icon: Contact, adminOnly: true },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: true },
   { href: "/scan", label: "Scan", icon: ScanLine, scanOnly: true },
   { href: "/reflect", label: "Reflect", icon: HeartHandshake },
   { href: "/profile", label: "Profile", icon: UserRound },

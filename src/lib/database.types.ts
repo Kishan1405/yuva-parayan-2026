@@ -120,6 +120,22 @@ export type WallPost = {
   created_at: string;
 };
 
+export type AttendanceByDay = { day: number; count: number };
+export type PeopleByMandal = { mandal_id: string | null; name: string; count: number };
+export type PeopleByDepartment = { department_id: string; name: string; count: number };
+export type PeopleByRole = { role: UserRole; count: number };
+
+export type AnalyticsData = {
+  total_people: number;
+  unique_attendees: number;
+  total_checkins: number;
+  attendance_by_day: AttendanceByDay[];
+  people_by_mandal: PeopleByMandal[];
+  people_by_department: PeopleByDepartment[];
+  unassigned_department_count: number;
+  people_by_role: PeopleByRole[];
+};
+
 type Table<Row> = {
   Row: Row;
   Insert: Partial<Row>;
@@ -189,6 +205,7 @@ export type Database = {
         AttendanceLogEntry[]
       >;
       admin_delete_attendance: Fn<{ p_caller_token: string; p_attendance_id: string }, null>;
+      admin_analytics: Fn<{ p_caller_token: string }, AnalyticsData>;
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
