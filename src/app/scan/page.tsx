@@ -4,40 +4,43 @@ import { useEffect, useRef, useState } from "react";
 import QrScanner from "qr-scanner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  CalendarClock,
   CheckCircle2,
   Clock,
   Keyboard,
+  PlayCircle,
   RotateCcw,
   ScanLine,
   Search,
+  StopCircle,
   UserMinus,
   UserPlus,
   UserRoundPlus,
   XCircle,
 } from "lucide-react";
 import { useSession } from "@/lib/session";
-import { supabase } from "@/lib/supabase";
+import { canManagePeople } from "@/lib/admin";
 import {
   markAttendance,
-  listAttendance,
-  scanSearchPeople,
+  listAttendanceLogs,
+  searchPeople,
   deleteAttendance,
   registerPerson,
-} from "@/lib/admin";
-import { EVENT_DAYS } from "@/lib/event";
-import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { Input, Select } from "@/components/ui/Field";
+} from "@/lib/api/attendance";
+import { getActiveEvent, launchEvent, endEvent } from "@/lib/api/events";
+import { searchMandalOptions } from "@/lib/api/mandals";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { Input } from "@/components/ui/Field";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { Button } from "@/components/ui/Button";
-import type { AttendanceLogEntry, Mandal, ScanPerson } from "@/lib/database.types";
+import type { AttendanceLogEntry, Event, Mandal, ScanPerson } from "@/lib/api/types";
 
-const QR_PREFIX = "YP2026:";
+const QR_PREFIX = "YUVASABHA:";
 const RESUME_DELAY_MS = 1200;
 const LOG_REFRESH_MS = 1000;
+const EVENT_REFRESH_MS = 2000;
 const SEARCH_DEBOUNCE_MS = 250;
 const RECENT_SCANS_LIMIT = 3;
-
-type Day = 1 | 2 | 3;
 
 interface ScanResult {
   id: string;
@@ -50,13 +53,73 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
-export default function ScanPage() {
-  const { deviceToken } = useSession();
+function formatEventTime(iso: string) {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
-  // ---- day (mandatory, no default) ----
-  const [day, setDay] = useState<Day | null>(null);
-  const dayRef = useRef<Day | null>(day);
-  const daySelected = day !== null;
+export default function ScanPage() {
+  const { user, deviceToken } = useSession();
+  const canLaunch = canManagePeople(user?.role);
+
+  // ---- active event (undefined = still checking, null = confirmed none) ----
+  const [activeEvent, setActiveEvent] = useState<Event | null | undefined>(undefined);
+  const activeEventRef = useRef<Event | null>(null);
+  const [launching, setLaunching] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const eventActive = !!activeEvent;
+
+  useEffect(() => {
+    activeEventRef.current = activeEvent ?? null;
+  }, [activeEvent]);
+
+  // Polled (not just fetched once) so a scanner's "waiting" screen updates
+  // as soon as an admin launches one elsewhere, and so this device notices
+  // if another admin ends the Sabha mid-scan.
+  useEffect(() => {
+    if (!deviceToken) return;
+    let cancelled = false;
+    async function poll() {
+      const { data } = await getActiveEvent();
+      if (!cancelled) setActiveEvent(data);
+    }
+    poll();
+    const interval = setInterval(poll, EVENT_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [deviceToken]);
+
+  async function handleLaunch() {
+    if (!deviceToken) return;
+    setLaunching(true);
+    const { data, error } = await launchEvent(deviceToken, {});
+    setLaunching(false);
+    if (error) {
+      alert(error);
+      return;
+    }
+    setActiveEvent(data);
+  }
+
+  async function handleEnd() {
+    if (!deviceToken || !activeEvent) return;
+    if (!confirm(`End "${activeEvent.title}"? Attendees won't be able to check in anymore.`)) return;
+    setEnding(true);
+    const { error } = await endEvent(deviceToken, activeEvent.id);
+    setEnding(false);
+    if (error) {
+      alert(error);
+      return;
+    }
+    setActiveEvent(null);
+  }
 
   // ---- scanner ----
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -72,32 +135,17 @@ export default function ScanPage() {
   const [manualSearching, setManualSearching] = useState(false);
 
   // ---- register a brand-new person (not in the system at all) ----
-  const [mandals, setMandals] = useState<Mandal[]>([]);
   const [newPersonOpen, setNewPersonOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newContact, setNewContact] = useState("");
-  const [newMandalId, setNewMandalId] = useState("");
+  const [newMandal, setNewMandal] = useState<Mandal | null>(null);
   const [newSubmitting, setNewSubmitting] = useState(false);
   const [newError, setNewError] = useState<string | null>(null);
   const [newSuccess, setNewSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase
-      .from("mandals")
-      .select("*")
-      .order("sort_order")
-      .then(({ data }) => {
-        if (data) {
-          setMandals(data);
-          if (data.length > 0) setNewMandalId((prev) => prev || data[0].id);
-        }
-      });
-  }, []);
-
-  // ---- attendee log ----
+  // ---- attendee log (always scoped to the active event) ----
   const [entries, setEntries] = useState<AttendanceLogEntry[] | null>(null);
-  const [dayFilter, setDayFilter] = useState<number | "all">("all");
-  const [mandalFilter, setMandalFilter] = useState<string>("all"); // "all" | mandal id
+  const [mandalFilter, setMandalFilter] = useState<Mandal | null>(null); // null = all Mandals
   const [logError, setLogError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const fetchingRef = useRef(false);
@@ -105,10 +153,11 @@ export default function ScanPage() {
   // ---- attendee log search: finds anyone in the system by name/contact,
   // not just people who already have a check-in — status is then read off
   // the already-polled `entries` below, so a search costs one lightweight
-  // RPC call and zero extra round trips for attendance status. ----
+  // API call and zero extra round trips for attendance status. ----
   const [logQuery, setLogQuery] = useState("");
   const [logSearchResults, setLogSearchResults] = useState<ScanPerson[] | null>(null);
   const [logSearching, setLogSearching] = useState(false);
+  const searchActive = logQuery.trim().length >= 2;
 
   useEffect(() => {
     if (!deviceToken) return;
@@ -120,29 +169,24 @@ export default function ScanPage() {
     }
     setLogSearching(true);
     const t = setTimeout(async () => {
-      const { data } = await scanSearchPeople(deviceToken, q);
+      const { data } = await searchPeople(deviceToken, q);
       setLogSearchResults(data);
       setLogSearching(false);
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [deviceToken, logQuery]);
 
-  useEffect(() => {
-    dayRef.current = day;
-  }, [day]);
-
   async function recordScan(targetUserId: string) {
-    if (!deviceToken || dayRef.current === null) return;
-    const { data, error } = await markAttendance(deviceToken, targetUserId, dayRef.current);
+    const event = activeEventRef.current;
+    if (!deviceToken || !event) return;
+    const { data, error } = await markAttendance(deviceToken, targetUserId, event.id);
 
     const newResult: ScanResult = data
       ? {
           id: `${data.attendance_id}-${Date.now()}`,
-          name: data.target_name,
+          name: data.name,
           status: data.already_marked ? "duplicate" : "ok",
-          message: data.already_marked
-            ? `Already checked in for Day ${data.day}`
-            : `Checked in — Day ${data.day}`,
+          message: data.already_marked ? "Already checked in" : "Checked in",
         }
       : {
           id: `err-${Date.now()}`,
@@ -154,11 +198,11 @@ export default function ScanPage() {
     setResults((prev) => [newResult, ...prev].slice(0, RECENT_SCANS_LIMIT));
   }
 
-  // Camera only starts once a day has been chosen — re-runs on the
-  // false -> true transition only (daySelected, not day itself), so
-  // switching days later doesn't restart the camera.
+  // Camera only starts once a Sabha is live — re-runs on the false -> true
+  // transition only (eventActive, not activeEvent itself), so the 2s event
+  // poll refreshing the object's other fields doesn't restart the camera.
   useEffect(() => {
-    if (!videoRef.current || !deviceToken || !daySelected) return;
+    if (!videoRef.current || !deviceToken || !eventActive) return;
 
     const scanner = new QrScanner(
       videoRef.current,
@@ -173,11 +217,31 @@ export default function ScanPage() {
 
     async function handleDecode(rawValue: string) {
       if (busyRef.current || !rawValue.startsWith(QR_PREFIX)) return;
-      const targetUserId = rawValue.slice(QR_PREFIX.length);
+      const [targetUserId, qrEventId] = rawValue.slice(QR_PREFIX.length).split(":");
+      const event = activeEventRef.current;
 
       busyRef.current = true;
       scannerRef.current?.pause();
-      await recordScan(targetUserId);
+
+      // Reject client-side too (faster feedback) — the server independently
+      // re-checks this on every mark, so a stale QR can't be forced through
+      // even if this device's local `activeEvent` were somehow out of date.
+      if (!event || qrEventId !== event.id) {
+        setResults((prev) =>
+          [
+            {
+              id: `err-${Date.now()}`,
+              name: "Scan failed",
+              status: "error" as const,
+              message: "This code is for a different or past Sabha.",
+            },
+            ...prev,
+          ].slice(0, RECENT_SCANS_LIMIT)
+        );
+      } else {
+        await recordScan(targetUserId);
+      }
+
       setTimeout(() => {
         busyRef.current = false;
         scannerRef.current?.start();
@@ -190,7 +254,7 @@ export default function ScanPage() {
       scannerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceToken, daySelected]);
+  }, [deviceToken, eventActive]);
 
   useEffect(() => {
     if (!deviceToken || !manualOpen) return;
@@ -200,7 +264,7 @@ export default function ScanPage() {
     }
     setManualSearching(true);
     const t = setTimeout(async () => {
-      const { data } = await scanSearchPeople(deviceToken, manualQuery);
+      const { data } = await searchPeople(deviceToken, manualQuery);
       setManualResults(data);
       setManualSearching(false);
     }, SEARCH_DEBOUNCE_MS);
@@ -229,7 +293,7 @@ export default function ScanPage() {
       setNewError("Please enter a valid 10-digit contact number.");
       return;
     }
-    if (!newMandalId) {
+    if (!newMandal) {
       setNewError("Please select a Mandal.");
       return;
     }
@@ -239,8 +303,8 @@ export default function ScanPage() {
 
     // Guard against accidental duplicates — this flow is meant for people
     // who genuinely aren't in the system yet.
-    const { data: existing } = await scanSearchPeople(deviceToken, contact);
-    const exactMatch = existing.find((p) => p.contact_number === contact);
+    const { data: existing } = await searchPeople(deviceToken, contact);
+    const exactMatch = existing?.find((p) => p.contact_number === contact);
     if (exactMatch) {
       setNewSubmitting(false);
       setNewError(
@@ -249,7 +313,11 @@ export default function ScanPage() {
       return;
     }
 
-    const { data: created, error } = await registerPerson(name, contact, newMandalId);
+    const { data: created, error } = await registerPerson(deviceToken, {
+      name,
+      contact_number: contact,
+      mandal_id: newMandal.id,
+    });
     setNewSubmitting(false);
 
     if (error || !created) {
@@ -257,11 +325,11 @@ export default function ScanPage() {
       return;
     }
 
-    if (dayRef.current !== null) {
+    if (activeEventRef.current) {
       await recordScan(created.id);
-      setNewSuccess(`Registered and checked in — Day ${dayRef.current}.`);
+      setNewSuccess("Registered and checked in.");
     } else {
-      setNewSuccess("Registered. Select a day above to check them in.");
+      setNewSuccess("Registered. No Sabha is live, so they weren't checked in.");
     }
 
     setNewName("");
@@ -270,7 +338,7 @@ export default function ScanPage() {
 
   async function handleDeleteEntry(entry: AttendanceLogEntry) {
     if (!deviceToken) return;
-    if (!confirm(`Remove ${entry.attendee_name}'s Day ${entry.day} check-in?`)) return;
+    if (!confirm(`Remove ${entry.attendee_name}'s check-in?`)) return;
 
     setDeletingId(entry.attendance_id);
     const { error } = await deleteAttendance(deviceToken, entry.attendance_id);
@@ -284,20 +352,33 @@ export default function ScanPage() {
   }
 
   useEffect(() => {
-    if (!deviceToken) return;
+    if (!deviceToken || !activeEvent) {
+      setEntries(null);
+      return;
+    }
 
     let cancelled = false;
+    // While searching, ignore the Mandal filter server-side too — search
+    // looks up anyone system-wide, and the filter UI is hidden during
+    // search anyway (see below), so entries needs everyone for accurate
+    // cross-referencing regardless of which Mandal is otherwise selected.
+    const mandalId = searchActive ? undefined : (mandalFilter?.id ?? undefined);
+    const eventId = activeEvent.id;
 
     async function tick() {
       if (fetchingRef.current) return;
       fetchingRef.current = true;
-      const { data, error } = await listAttendance(deviceToken!);
+      const { data, error } = await listAttendanceLogs(deviceToken!, {
+        event_id: eventId,
+        mandal_id: mandalId,
+        per_page: 100,
+      });
       fetchingRef.current = false;
       if (cancelled) return;
       if (error) setLogError(error);
       else {
         setLogError(null);
-        setEntries(data);
+        setEntries(data?.data ?? []);
       }
     }
 
@@ -307,24 +388,13 @@ export default function ScanPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [deviceToken]);
+    // activeEvent?.id (not the object) — the object gets a new reference on
+    // every 2s poll even when nothing changed, which would otherwise restart
+    // this interval for no reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceToken, activeEvent?.id, mandalFilter, searchActive]);
 
-  // Day tiles + the list both respect the Mandal filter, so the tiles
-  // double as the "count for this Mandal" the filter needs to show.
-  const mandalFilteredEntries =
-    mandalFilter === "all" ? entries : entries?.filter((e) => e.mandal_id === mandalFilter) ?? null;
-
-  const counts = EVENT_DAYS.map((d) => ({
-    day: d.day,
-    count: mandalFilteredEntries?.filter((e) => e.day === d.day).length ?? 0,
-  }));
-
-  const visible =
-    dayFilter === "all"
-      ? mandalFilteredEntries
-      : mandalFilteredEntries?.filter((e) => e.day === dayFilter) ?? null;
-
-  const searchActive = logQuery.trim().length >= 2;
+  const visible = entries;
 
   return (
     <div className="space-y-6">
@@ -361,9 +431,9 @@ export default function ScanPage() {
                 <p className="mb-1 text-sm font-semibold">Register a new person</p>
                 <p className="text-xs text-foreground-muted">
                   For someone who isn&apos;t in the system yet.
-                  {daySelected
-                    ? ` They'll be checked in for Day ${day} right away.`
-                    : " Select a day above to also check them in."}
+                  {eventActive
+                    ? " They'll be checked in for today's Sabha right away."
+                    : " No Sabha is live, so they'll just be registered."}
                 </p>
               </div>
 
@@ -381,14 +451,14 @@ export default function ScanPage() {
                   inputMode="numeric"
                   autoComplete="tel"
                 />
-                <Select value={newMandalId} onChange={(e) => setNewMandalId(e.target.value)}>
-                  {mandals.length === 0 && <option value="">Loading Mandals…</option>}
-                  {mandals.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </Select>
+                <SearchSelect
+                  value={newMandal}
+                  onChange={setNewMandal}
+                  onSearch={searchMandalOptions}
+                  getId={(m) => m.id}
+                  getLabel={(m) => m.name}
+                  placeholder="Select their Mandal…"
+                />
 
                 {newError && <p className="text-sm text-red-500">{newError}</p>}
                 {newSuccess && <p className="text-sm text-saffron-deep">{newSuccess}</p>}
@@ -402,25 +472,60 @@ export default function ScanPage() {
         )}
       </AnimatePresence>
 
-      {/* ---------- day selection (mandatory) ---------- */}
-      <div className="space-y-3">
-        <p className="text-sm font-medium">
-          {daySelected ? "Recording attendance for" : "Select a day to begin"}
-        </p>
-        <SegmentedControl
-          options={EVENT_DAYS.map((d) => ({ value: String(d.day), label: `Day ${d.day}` }))}
-          value={day === null ? "" : String(day)}
-          onChange={(v) => setDay(Number(v) as Day)}
-        />
-      </div>
-
-      {!daySelected && (
-        <GlassCard className="text-center text-sm text-foreground-muted">
-          Pick a day above to open the scanner.
+      {/* ---------- event status ---------- */}
+      {activeEvent === undefined && (
+        <GlassCard className="py-8 text-center text-sm text-foreground-muted">
+          Checking for a live Sabha…
         </GlassCard>
       )}
 
-      {daySelected && (
+      {activeEvent === null && canLaunch && (
+        <GlassCard strong className="flex flex-col items-center gap-3 py-8 text-center">
+          <CalendarClock className="text-foreground-muted" size={26} />
+          <div>
+            <p className="font-display text-base font-semibold">No Sabha is live</p>
+            <p className="mt-1 text-sm text-foreground-muted">
+              Launch one when today&apos;s Yuva Sabha begins — everyone will see it immediately.
+            </p>
+          </div>
+          <Button type="button" onClick={handleLaunch} disabled={launching}>
+            <PlayCircle size={16} />
+            {launching ? "Launching…" : "Launch Yuva Sabha"}
+          </Button>
+        </GlassCard>
+      )}
+
+      {activeEvent === null && !canLaunch && (
+        <GlassCard className="py-8 text-center text-sm text-foreground-muted">
+          Waiting for an admin to launch today&apos;s Sabha.
+        </GlassCard>
+      )}
+
+      {activeEvent && (
+        <GlassCard strong className="flex items-center justify-between gap-3 py-4">
+          <div className="min-w-0">
+            <p className="truncate font-display text-base font-semibold text-saffron-deep">
+              {activeEvent.title} · Live
+            </p>
+            <p className="text-xs text-foreground-muted">
+              {formatEventTime(activeEvent.scheduled_at)}
+            </p>
+          </div>
+          {canLaunch && (
+            <button
+              type="button"
+              onClick={handleEnd}
+              disabled={ending}
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-500 disabled:opacity-50"
+            >
+              <StopCircle size={14} />
+              {ending ? "Ending…" : "End Sabha"}
+            </button>
+          )}
+        </GlassCard>
+      )}
+
+      {activeEvent && (
         <>
           {/* ---------- scanner ---------- */}
           <div className="space-y-4">
@@ -545,223 +650,183 @@ export default function ScanPage() {
               )}
             </div>
           </div>
-        </>
-      )}
 
-      {/* ---------- attendee logs ---------- */}
-      <div className="space-y-4 border-t border-foreground/10 pt-6">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold">Attendee Logs</h2>
-          <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-saffron-deep" />
-        </div>
+          {/* ---------- attendee logs ---------- */}
+          <div className="space-y-4 border-t border-foreground/10 pt-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-lg font-semibold">Attendee Logs</h2>
+              <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-saffron-deep" />
+            </div>
 
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-3 gap-3"
-        >
-          {counts.map((c) => (
-            <GlassCard key={c.day} variants={staggerItem} className="text-center">
-              <motion.p
-                key={c.count}
-                initial={{ scale: 1.3, opacity: 0.6 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                className="font-display text-2xl font-semibold text-saffron-deep"
-              >
-                {c.count}
-              </motion.p>
-              <p className="mt-0.5 text-xs text-foreground-muted">Day {c.day}</p>
-            </GlassCard>
-          ))}
-        </motion.div>
-
-        {!searchActive && (
-          <div className="flex items-center gap-2">
-            <Select
-              value={mandalFilter}
-              onChange={(e) => setMandalFilter(e.target.value)}
-              className="flex-1"
-            >
-              <option value="all">All Mandals</option>
-              {mandals.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </Select>
-            <span className="shrink-0 whitespace-nowrap text-xs text-foreground-muted">
-              {visible?.length ?? 0} check-in{visible?.length === 1 ? "" : "s"}
-            </span>
-          </div>
-        )}
-
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted"
-            size={16}
-          />
-          <Input
-            value={logQuery}
-            onChange={(e) => setLogQuery(e.target.value)}
-            placeholder="Find anyone by name or contact number…"
-            className="pl-10"
-          />
-        </div>
-
-        {!searchActive && (
-          <SegmentedControl
-            options={[
-              { value: "all", label: "All" },
-              ...EVENT_DAYS.map((d) => ({ value: String(d.day), label: `Day ${d.day}` })),
-            ]}
-            value={String(dayFilter)}
-            onChange={(v) => setDayFilter(v === "all" ? "all" : Number(v))}
-          />
-        )}
-
-        {logError && (
-          <GlassCard className="text-center text-sm text-foreground-muted">{logError}</GlassCard>
-        )}
-
-        {/* ---------- search mode: any person, checked in or not ---------- */}
-        {searchActive && (
-          <>
-            {logSearching && (
-              <p className="py-6 text-center text-xs text-foreground-muted">Searching…</p>
+            {!searchActive && (
+              <GlassCard className="flex items-center justify-between py-3.5">
+                <span className="text-sm font-medium">Checked in</span>
+                <motion.span
+                  key={entries?.length ?? 0}
+                  initial={{ scale: 1.3, opacity: 0.6 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                  className="font-display text-xl font-semibold text-saffron-deep"
+                >
+                  {entries?.length ?? 0}
+                </motion.span>
+              </GlassCard>
             )}
 
-            {!logSearching && logSearchResults && logSearchResults.length === 0 && (
-              <p className="py-8 text-center text-sm text-foreground-muted">No one found.</p>
+            {!searchActive && (
+              <SearchSelect
+                value={mandalFilter}
+                onChange={setMandalFilter}
+                onSearch={searchMandalOptions}
+                getId={(m) => m.id}
+                getLabel={(m) => m.name}
+                placeholder="All Mandals"
+                clearable
+                clearLabel="All Mandals"
+                onClear={() => setMandalFilter(null)}
+              />
             )}
 
-            {!logSearching && logSearchResults && logSearchResults.length > 0 && (
-              <div className="space-y-3">
-                <AnimatePresence initial={false}>
-                  {logSearchResults.map((p) => {
-                    const personEntries = entries?.filter((e) => e.user_id === p.id) ?? [];
-                    const relevant =
-                      dayFilter === "all"
-                        ? personEntries
-                        : personEntries.filter((e) => e.day === dayFilter);
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted"
+                size={16}
+              />
+              <Input
+                value={logQuery}
+                onChange={(e) => setLogQuery(e.target.value)}
+                placeholder="Find anyone by name or contact number…"
+                className="pl-10"
+              />
+            </div>
 
-                    return (
-                      <motion.div
-                        key={p.id}
-                        layout
-                        initial={{ opacity: 0, y: -16, scale: 0.97 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.97 }}
-                        transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                      >
-                        <GlassCard className="flex items-center gap-3 py-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold">{p.name}</p>
-                            <p className="truncate text-xs text-foreground-muted">
-                              {p.contact_number}
-                            </p>
-                          </div>
+            {logError && (
+              <GlassCard className="text-center text-sm text-foreground-muted">{logError}</GlassCard>
+            )}
 
-                          {relevant.length === 0 ? (
-                            <span className="shrink-0 rounded-full bg-foreground/5 px-2.5 py-1 text-[11px] font-medium text-foreground-muted">
-                              Not checked in{dayFilter !== "all" && ` — Day ${dayFilter}`}
-                            </span>
-                          ) : (
-                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                              {relevant.map((e) => (
-                                <span
-                                  key={e.attendance_id}
-                                  className="flex items-center gap-1 rounded-full bg-saffron-deep/12 py-0.5 pl-2 pr-1 text-[11px] font-semibold text-saffron-deep"
-                                >
+            {/* ---------- search mode: any person, checked in or not ---------- */}
+            {searchActive && (
+              <>
+                {logSearching && (
+                  <p className="py-6 text-center text-xs text-foreground-muted">Searching…</p>
+                )}
+
+                {!logSearching && logSearchResults && logSearchResults.length === 0 && (
+                  <p className="py-8 text-center text-sm text-foreground-muted">No one found.</p>
+                )}
+
+                {!logSearching && logSearchResults && logSearchResults.length > 0 && (
+                  <div className="space-y-3">
+                    <AnimatePresence initial={false}>
+                      {logSearchResults.map((p) => {
+                        const entry = entries?.find((e) => e.user_id === p.id) ?? null;
+
+                        return (
+                          <motion.div
+                            key={p.id}
+                            layout
+                            initial={{ opacity: 0, y: -16, scale: 0.97 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.97 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                          >
+                            <GlassCard className="flex items-center gap-3 py-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold">{p.name}</p>
+                                <p className="truncate text-xs text-foreground-muted">
+                                  {p.contact_number}
+                                </p>
+                              </div>
+
+                              {!entry ? (
+                                <span className="shrink-0 rounded-full bg-foreground/5 px-2.5 py-1 text-[11px] font-medium text-foreground-muted">
+                                  Not checked in
+                                </span>
+                              ) : (
+                                <span className="flex shrink-0 items-center gap-1 rounded-full bg-saffron-deep/12 py-0.5 pl-2 pr-1 text-[11px] font-semibold text-saffron-deep">
                                   <CheckCircle2 size={11} />
-                                  Day {e.day}
+                                  Checked in
                                   <button
                                     type="button"
-                                    onClick={() => handleDeleteEntry(e)}
-                                    disabled={deletingId === e.attendance_id}
-                                    aria-label={`Remove ${p.name}'s Day ${e.day} check-in`}
+                                    onClick={() => handleDeleteEntry(entry)}
+                                    disabled={deletingId === entry.attendance_id}
+                                    aria-label={`Remove ${p.name}'s check-in`}
                                     className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-saffron-deep/70 hover:text-red-500 disabled:opacity-40"
                                   >
                                     <UserMinus size={12} />
                                   </button>
                                 </span>
-                              ))}
-                            </div>
-                          )}
-                        </GlassCard>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ---------- normal mode: day-filtered attendance list ---------- */}
-        {!searchActive && (
-          <>
-            {visible === null && !logError && (
-              <div className="space-y-3">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="glass-card h-16 animate-pulse rounded-3xl" />
-                ))}
-              </div>
+                              )}
+                            </GlassCard>
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </>
             )}
 
-            {visible && visible.length === 0 && (
-              <p className="py-8 text-center text-sm text-foreground-muted">No check-ins yet.</p>
-            )}
+            {/* ---------- normal mode: check-ins for the active Sabha ---------- */}
+            {!searchActive && (
+              <>
+                {visible === null && !logError && (
+                  <div className="space-y-3">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="glass-card h-16 animate-pulse rounded-3xl" />
+                    ))}
+                  </div>
+                )}
 
-            {visible && visible.length > 0 && (
-              <div className="space-y-3">
-                <AnimatePresence initial={false}>
-                  {visible.map((e) => (
-                    <motion.div
-                      key={e.attendance_id}
-                      layout
-                      initial={{ opacity: 0, y: -16, scale: 0.97 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.97 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                    >
-                      <GlassCard className="flex items-center gap-3 py-3">
-                        <CheckCircle2 className="shrink-0 text-saffron-deep" size={20} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{e.attendee_name}</p>
-                          <p className="truncate text-xs text-foreground-muted">
-                            {e.contact_number}
-                            {e.scanned_by_name && <> · scanned by {e.scanned_by_name}</>}
-                          </p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <span className="rounded-full bg-saffron-deep/12 px-2 py-0.5 text-[11px] font-semibold text-saffron-deep">
-                            Day {e.day}
-                          </span>
-                          <p className="mt-1 flex items-center gap-1 text-[11px] text-foreground-muted">
-                            <Clock size={11} />
-                            {formatTime(e.scanned_at)}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteEntry(e)}
-                          disabled={deletingId === e.attendance_id}
-                          aria-label={`Remove ${e.attendee_name}'s check-in`}
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500 disabled:opacity-40"
+                {visible && visible.length === 0 && (
+                  <p className="py-8 text-center text-sm text-foreground-muted">No check-ins yet.</p>
+                )}
+
+                {visible && visible.length > 0 && (
+                  <div className="space-y-3">
+                    <AnimatePresence initial={false}>
+                      {visible.map((e) => (
+                        <motion.div
+                          key={e.attendance_id}
+                          layout
+                          initial={{ opacity: 0, y: -16, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.97 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 32 }}
                         >
-                          <UserMinus size={16} />
-                        </button>
-                      </GlassCard>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
+                          <GlassCard className="flex items-center gap-3 py-3">
+                            <CheckCircle2 className="shrink-0 text-saffron-deep" size={20} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">{e.attendee_name}</p>
+                              <p className="truncate text-xs text-foreground-muted">
+                                {e.contact_number}
+                                {e.scanned_by_name && <> · scanned by {e.scanned_by_name}</>}
+                              </p>
+                            </div>
+                            <p className="flex shrink-0 items-center gap-1 text-[11px] text-foreground-muted">
+                              <Clock size={11} />
+                              {formatTime(e.scanned_at)}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEntry(e)}
+                              disabled={deletingId === e.attendance_id}
+                              aria-label={`Remove ${e.attendee_name}'s check-in`}
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500 disabled:opacity-40"
+                            >
+                              <UserMinus size={16} />
+                            </button>
+                          </GlassCard>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

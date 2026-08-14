@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Phone, Star, UserMinus } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
-import { assignDepartment } from "@/lib/admin";
+import { assignDepartment, getDepartment, getDepartmentRoster, getDepartmentTasks } from "@/lib/api/departments";
 import { GlassCard } from "@/components/ui/GlassCard";
-import type { Department, DepartmentRosterEntry, DepartmentTask } from "@/lib/database.types";
+import type { Department, DepartmentRosterEntry, DepartmentTask } from "@/lib/api/types";
 
 export default function DepartmentDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -19,22 +18,17 @@ export default function DepartmentDetailPage() {
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase
-      .from("departments")
-      .select("*")
-      .eq("slug", slug)
-      .maybeSingle()
-      .then(async ({ data }) => {
-        setDepartment(data ?? null);
-        if (!data) return;
+    getDepartment(slug).then(async ({ data }) => {
+      setDepartment(data ?? null);
+      if (!data) return;
 
-        const [rosterRes, tasksRes] = await Promise.all([
-          supabase.rpc("get_department_roster", { p_department_id: data.id }),
-          supabase.from("department_tasks").select("*").eq("department_id", data.id).order("sort_order"),
-        ]);
-        setMembers(rosterRes.data ?? []);
-        setTasks(tasksRes.data ?? []);
-      });
+      const [rosterRes, tasksRes] = await Promise.all([
+        getDepartmentRoster(data.id),
+        getDepartmentTasks(data.id),
+      ]);
+      setMembers(rosterRes.data ?? []);
+      setTasks(tasksRes.data ?? []);
+    });
   }, [slug]);
 
   async function handleRemove(member: DepartmentRosterEntry) {

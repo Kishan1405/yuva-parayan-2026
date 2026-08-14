@@ -4,21 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ChevronRight, Users } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
+import { listDepartments } from "@/lib/api/departments";
 import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
-import type { Department } from "@/lib/database.types";
+import type { Department } from "@/lib/api/types";
 
 export default function DepartmentsPage() {
   const { user } = useSession();
   const [departments, setDepartments] = useState<Department[] | null>(null);
 
   useEffect(() => {
-    supabase
-      .from("departments")
-      .select("*")
-      .order("sort_order")
-      .then(({ data }) => setDepartments(data ?? []));
+    listDepartments().then(({ data }) => setDepartments(data ?? []));
   }, []);
 
   return (
@@ -26,7 +22,7 @@ export default function DepartmentsPage() {
       <div>
         <h1 className="font-display text-2xl font-semibold">Departments</h1>
         <p className="mt-1 text-sm text-foreground-muted">
-          Seva teams for Yuva Parayan 2026.
+          Seva teams for Yuva Sabha.
         </p>
       </div>
 

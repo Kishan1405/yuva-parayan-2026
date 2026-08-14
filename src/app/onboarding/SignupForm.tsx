@@ -1,33 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useState } from "react";
+import { searchMandalOptions } from "@/lib/api/mandals";
+import type { Mandal } from "@/lib/api/types";
 import { useSession } from "@/lib/session";
-import { Label, Input, Select } from "@/components/ui/Field";
+import { Label, Input } from "@/components/ui/Field";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { Button } from "@/components/ui/Button";
-import type { Mandal } from "@/lib/database.types";
 
 export function SignupForm() {
   const { signUp } = useSession();
-  const [mandals, setMandals] = useState<Mandal[]>([]);
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
-  const [mandalId, setMandalId] = useState("");
+  const [mandal, setMandal] = useState<Mandal | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase
-      .from("mandals")
-      .select("*")
-      .order("sort_order")
-      .then(({ data }) => {
-        if (data) {
-          setMandals(data);
-          if (data.length > 0) setMandalId((prev) => prev || data[0].id);
-        }
-      });
-  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,7 +28,7 @@ export function SignupForm() {
       setError("Please enter a valid 10-digit contact number.");
       return;
     }
-    if (!mandalId) {
+    if (!mandal) {
       setError("Please select your Mandal.");
       return;
     }
@@ -50,7 +37,7 @@ export function SignupForm() {
     const { error: signUpError } = await signUp({
       name,
       contact_number: contact.trim(),
-      mandal_id: mandalId,
+      mandal_id: mandal.id,
     });
     setSubmitting(false);
     if (signUpError) setError(signUpError);
@@ -87,14 +74,14 @@ export function SignupForm() {
 
       <div>
         <Label>Mandal</Label>
-        <Select value={mandalId} onChange={(e) => setMandalId(e.target.value)}>
-          {mandals.length === 0 && <option value="">Loading Mandals…</option>}
-          {mandals.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </Select>
+        <SearchSelect
+          value={mandal}
+          onChange={setMandal}
+          onSearch={searchMandalOptions}
+          getId={(m) => m.id}
+          getLabel={(m) => m.name}
+          placeholder="Search for your Mandal…"
+        />
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}

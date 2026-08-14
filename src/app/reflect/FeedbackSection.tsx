@@ -3,191 +3,176 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, ChevronDown, Lock } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
-import { EVENT_DAYS, isFeedbackUnlocked, type EventDay } from "@/lib/event";
+import { getActiveEvent } from "@/lib/api/events";
+import { getFeedbackQuestions, getMyFeedback, submitFeedback } from "@/lib/api/feedback";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { StarRating } from "@/components/ui/StarRating";
-import type { FeedbackQuestion, FeedbackResponse } from "@/lib/database.types";
+import type { Event, FeedbackQuestion, FeedbackResponse } from "@/lib/api/types";
 
 type AnswerMap = Record<string, { rating: number; text: string }>;
 
+function formatEventTime(iso: string) {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function FeedbackSection() {
-  const { user } = useSession();
+  const { deviceToken } = useSession();
+  // undefined = still checking, null = confirmed no live Sabha
+  const [activeEvent, setActiveEvent] = useState<Event | null | undefined>(undefined);
   const [questions, setQuestions] = useState<FeedbackQuestion[]>([]);
   const [responses, setResponses] = useState<FeedbackResponse[]>([]);
-  const [openDay, setOpenDay] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [saving, setSaving] = useState(false);
-  const [justSavedDay, setJustSavedDay] = useState<number | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from("feedback_questions")
-      .select("*")
-      .order("sort_order")
-      .then(({ data }) => setQuestions(data ?? []));
+    getActiveEvent().then(({ data }) => setActiveEvent(data));
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("feedback_responses")
-      .select("*")
-      .eq("user_id", user.id)
-      .then(({ data }) => setResponses(data ?? []));
-  }, [user]);
+    getFeedbackQuestions().then(({ data }) => setQuestions(data ?? []));
+  }, []);
 
-  const submittedDays = useMemo(() => {
-    const days = new Set<number>();
-    responses.forEach((r) => days.add(r.day));
-    return days;
-  }, [responses]);
+  useEffect(() => {
+    if (!deviceToken) return;
+    getMyFeedback(deviceToken).then(({ data }) => setResponses(data ?? []));
+  }, [deviceToken]);
 
-  function openForm(day: EventDay) {
-    setJustSavedDay(null);
-    if (openDay === day.day) {
-      setOpenDay(null);
+  const submitted = useMemo(
+    () => !!activeEvent && responses.some((r) => r.event_id === activeEvent.id),
+    [responses, activeEvent]
+  );
+
+  function openForm() {
+    if (!activeEvent) return;
+    setJustSaved(false);
+    if (open) {
+      setOpen(false);
       return;
     }
+    const event = activeEvent;
     const initial: AnswerMap = {};
     questions.forEach((q) => {
-      const existing = responses.find((r) => r.day === day.day && r.question_id === q.id);
-      initial[q.id] = {
-        rating: existing?.rating ?? 0,
-        text: existing?.answer_text ?? "",
-      };
+      const existing = responses.find((r) => r.event_id === event.id && r.question_id === q.id);
+      initial[q.id] = { rating: existing?.rating ?? 0, text: existing?.answer_text ?? "" };
     });
     setAnswers(initial);
-    setOpenDay(day.day);
+    setOpen(true);
   }
 
-  async function submit(day: number) {
-    if (!user) return;
+  async function submit() {
+    if (!deviceToken || !activeEvent) return;
     setSaving(true);
-    const rows = questions.map((q) => ({
-      user_id: user.id,
+    const answersPayload = questions.map((q) => ({
       question_id: q.id,
-      day,
       rating: q.question_type === "rating" ? answers[q.id]?.rating || null : null,
       answer_text: q.question_type === "text" ? answers[q.id]?.text || null : null,
     }));
 
-    const { error } = await supabase
-      .from("feedback_responses")
-      .upsert(rows, { onConflict: "user_id,question_id,day" });
-
+    const { data, error } = await submitFeedback(deviceToken, {
+      event_id: activeEvent.id,
+      answers: answersPayload,
+    });
     setSaving(false);
-    if (!error) {
-      const { data } = await supabase
-        .from("feedback_responses")
-        .select("*")
-        .eq("user_id", user.id);
-      setResponses(data ?? []);
-      setJustSavedDay(day);
-      setOpenDay(null);
+    if (!error && data) {
+      setResponses((prev) => [...prev.filter((r) => r.event_id !== activeEvent.id), ...data]);
+      setJustSaved(true);
+      setOpen(false);
     }
   }
 
+  const statusText = !activeEvent
+    ? "Opens once today's Sabha begins"
+    : submitted
+      ? "Feedback submitted — tap to edit"
+      : `Tap to give feedback · ${formatEventTime(activeEvent.scheduled_at)}`;
+
   return (
     <div className="space-y-3">
-      {EVENT_DAYS.map((day) => {
-        const unlocked = isFeedbackUnlocked(day);
-        const submitted = submittedDays.has(day.day);
-        const isOpen = openDay === day.day;
+      <GlassCard
+        interactive={!!activeEvent}
+        onClick={openForm}
+        className={`flex items-center justify-between py-3.5 ${
+          activeEvent ? "cursor-pointer" : "opacity-60"
+        }`}
+      >
+        <div>
+          <p className="text-sm font-semibold">{activeEvent?.title ?? "Today's Sabha"}</p>
+          <p className="mt-0.5 text-xs text-foreground-muted">{statusText}</p>
+        </div>
+        {!activeEvent ? (
+          <Lock size={18} className="text-foreground-muted" />
+        ) : submitted ? (
+          <CheckCircle2 size={20} className="text-saffron-deep" />
+        ) : (
+          <ChevronDown
+            size={18}
+            className={`text-foreground-muted transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        )}
+      </GlassCard>
 
-        return (
-          <div key={day.day}>
-            <GlassCard
-              interactive={unlocked}
-              onClick={() => unlocked && openForm(day)}
-              className={`flex items-center justify-between py-3.5 ${
-                unlocked ? "cursor-pointer" : "opacity-60"
-              }`}
-            >
-              <div>
-                <p className="text-sm font-semibold">{day.label}</p>
-                <p className="mt-0.5 text-xs text-foreground-muted">
-                  {!unlocked
-                    ? "Opens on this day"
-                    : submitted
-                    ? "Feedback submitted — tap to edit"
-                    : "Tap to give feedback"}
-                </p>
-              </div>
-              {!unlocked ? (
-                <Lock size={18} className="text-foreground-muted" />
-              ) : submitted ? (
-                <CheckCircle2 size={20} className="text-saffron-deep" />
-              ) : (
-                <ChevronDown
-                  size={18}
-                  className={`text-foreground-muted transition-transform ${isOpen ? "rotate-180" : ""}`}
-                />
-              )}
+      <AnimatePresence initial={false}>
+        {open && activeEvent && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <GlassCard strong className="mt-2 space-y-5">
+              {questions.map((q) => (
+                <div key={q.id}>
+                  <p className="mb-2 text-sm font-medium">{q.question_text}</p>
+                  {q.question_type === "rating" ? (
+                    <StarRating
+                      value={answers[q.id]?.rating ?? 0}
+                      onChange={(v) =>
+                        setAnswers((prev) => ({
+                          ...prev,
+                          [q.id]: { ...prev[q.id], rating: v, text: prev[q.id]?.text ?? "" },
+                        }))
+                      }
+                    />
+                  ) : (
+                    <Textarea
+                      rows={2}
+                      value={answers[q.id]?.text ?? ""}
+                      onChange={(e) =>
+                        setAnswers((prev) => ({
+                          ...prev,
+                          [q.id]: { rating: prev[q.id]?.rating ?? 0, text: e.target.value },
+                        }))
+                      }
+                      placeholder="Type your answer…"
+                    />
+                  )}
+                </div>
+              ))}
+              <Button type="button" disabled={saving} onClick={submit} className="w-full">
+                {saving ? "Saving…" : "Submit feedback"}
+              </Button>
             </GlassCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-            <AnimatePresence initial={false}>
-              {isOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                  className="overflow-hidden"
-                >
-                  <GlassCard strong className="mt-2 space-y-5">
-                    {questions.map((q) => (
-                      <div key={q.id}>
-                        <p className="mb-2 text-sm font-medium">{q.question_text}</p>
-                        {q.question_type === "rating" ? (
-                          <StarRating
-                            value={answers[q.id]?.rating ?? 0}
-                            onChange={(v) =>
-                              setAnswers((prev) => ({
-                                ...prev,
-                                [q.id]: { ...prev[q.id], rating: v, text: prev[q.id]?.text ?? "" },
-                              }))
-                            }
-                          />
-                        ) : (
-                          <Textarea
-                            rows={2}
-                            value={answers[q.id]?.text ?? ""}
-                            onChange={(e) =>
-                              setAnswers((prev) => ({
-                                ...prev,
-                                [q.id]: { rating: prev[q.id]?.rating ?? 0, text: e.target.value },
-                              }))
-                            }
-                            placeholder="Type your answer…"
-                          />
-                        )}
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => submit(day.day)}
-                      className="w-full"
-                    >
-                      {saving ? "Saving…" : "Submit feedback"}
-                    </Button>
-                  </GlassCard>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {justSavedDay === day.day && (
-              <p className="mt-2 pl-1 text-xs font-medium text-saffron-deep">
-                Thank you for your feedback! 🙏
-              </p>
-            )}
-          </div>
-        );
-      })}
+      {justSaved && (
+        <p className="pl-1 text-xs font-medium text-saffron-deep">
+          Thank you for your feedback! 🙏
+        </p>
+      )}
     </div>
   );
 }

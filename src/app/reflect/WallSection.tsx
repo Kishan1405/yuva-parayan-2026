@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
+import { createWallPost, listWallPosts } from "@/lib/api/wall";
 import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
 import { Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
-import type { WallPost } from "@/lib/database.types";
+import type { WallPost } from "@/lib/api/types";
 
 function timeAgo(iso: string) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -22,16 +22,13 @@ function timeAgo(iso: string) {
 }
 
 export function WallSection() {
-  const { user } = useSession();
+  const { deviceToken } = useSession();
   const [posts, setPosts] = useState<WallPost[] | null>(null);
   const [content, setContent] = useState("");
   const [posting, setPosting] = useState(false);
 
   async function loadPosts() {
-    const { data } = await supabase
-      .from("wall_posts")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data } = await listWallPosts();
     setPosts(data ?? []);
   }
 
@@ -40,13 +37,9 @@ export function WallSection() {
   }, []);
 
   async function handlePost() {
-    if (!user || content.trim().length < 3) return;
+    if (!deviceToken || content.trim().length < 3) return;
     setPosting(true);
-    const { error } = await supabase.from("wall_posts").insert({
-      user_id: user.id,
-      author_name: user.name,
-      content: content.trim(),
-    });
+    const { error } = await createWallPost(deviceToken, content.trim());
     setPosting(false);
     if (!error) {
       setContent("");
@@ -64,7 +57,7 @@ export function WallSection() {
           rows={3}
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="What will you carry with you from Yuva Parayan 2026?"
+          placeholder="What will you carry with you from Yuva Sabha?"
         />
         <Button
           type="button"

@@ -7,7 +7,7 @@ import { X, Share, SquarePlus, Download } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 
-const DISMISS_KEY = "yp2026_install_dismissed_at";
+const DISMISS_KEY = "yuvasabha_install_dismissed_at";
 const DISMISS_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 const ANDROID_FALLBACK_DELAY_MS = 3500;
 const IOS_SHOW_DELAY_MS = 1200;
@@ -122,7 +122,7 @@ export function InstallPrompt() {
                 className="shrink-0 rounded-xl"
               />
               <div className="min-w-0">
-                <p className="font-display text-sm font-semibold">Install Yuva Parayan 2026</p>
+                <p className="font-display text-sm font-semibold">Install Yuva Sabha</p>
                 <p className="mt-0.5 text-xs text-foreground-muted">
                   {mode === "ios"
                     ? "Add it to your Home Screen for quick, full-screen access."
