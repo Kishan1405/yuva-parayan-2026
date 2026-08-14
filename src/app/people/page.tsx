@@ -3,16 +3,19 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Search, ShieldCheck, UserX, Users } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
-import { canManageAdmins } from "@/lib/admin";
-import { adminSearchPeople, deletePerson, setUserRole } from "@/lib/api/people";
-import { assignDepartment, listDepartments } from "@/lib/api/departments";
-import { searchMandalOptions } from "@/lib/api/mandals";
+import {
+  searchPeople,
+  assignDepartment,
+  setUserRole,
+  deletePerson,
+  canManageAdmins,
+} from "@/lib/admin";
 import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
 import { Input, Select } from "@/components/ui/Field";
-import { SearchSelect } from "@/components/ui/SearchSelect";
 import { Button } from "@/components/ui/Button";
-import type { AdminPerson, Department, DepartmentRole, Mandal, UserRole } from "@/lib/api/types";
+import type { AdminPerson, Department, Mandal, MemberRole, UserRole } from "@/lib/database.types";
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "user", label: "User" },
@@ -23,6 +26,7 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
 
 export default function PeoplePage() {
   const { user, deviceToken } = useSession();
+  const [mandals, setMandals] = useState<Mandal[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [query, setQuery] = useState("");
   const [people, setPeople] = useState<AdminPerson[]>([]);
@@ -31,18 +35,27 @@ export default function PeoplePage() {
 
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all"); // "all" | "none" | department id
-  const [mandalFilter, setMandalFilter] = useState<Mandal | null>(null); // null = all Mandals
+  const [mandalFilter, setMandalFilter] = useState<string>("all"); // "all" | "none" | mandal id
 
   useEffect(() => {
-    listDepartments().then(({ data }) => setDepartments(data ?? []));
+    supabase
+      .from("mandals")
+      .select("*")
+      .order("sort_order")
+      .then(({ data }) => setMandals(data ?? []));
+    supabase
+      .from("departments")
+      .select("*")
+      .order("sort_order")
+      .then(({ data }) => setDepartments(data ?? []));
   }, []);
 
   const load = useMemo(
     () => async (q: string) => {
       if (!deviceToken) return;
       setLoading(true);
-      const { data } = await adminSearchPeople(deviceToken, q);
-      setPeople(data ?? []);
+      const { data } = await searchPeople(deviceToken, q);
+      setPeople(data);
       setLoading(false);
     },
     [deviceToken]
@@ -53,7 +66,9 @@ export default function PeoplePage() {
     return () => clearTimeout(t);
   }, [query, load]);
 
-  const filtersActive = roleFilter !== "all" || departmentFilter !== "all" || !!mandalFilter;
+  const mandalName = (id: string | null) => mandals.find((m) => m.id === id)?.name ?? "No Mandal";
+
+  const filtersActive = roleFilter !== "all" || departmentFilter !== "all" || mandalFilter !== "all";
 
   const filteredPeople = useMemo(() => {
     return people.filter((p) => {
@@ -65,7 +80,9 @@ export default function PeoplePage() {
         p.department_id !== departmentFilter
       )
         return false;
-      if (mandalFilter && p.mandal_id !== mandalFilter.id) return false;
+      if (mandalFilter === "none" && p.mandal_id) return false;
+      if (mandalFilter !== "all" && mandalFilter !== "none" && p.mandal_id !== mandalFilter)
+        return false;
       return true;
     });
   }, [people, roleFilter, departmentFilter, mandalFilter]);
@@ -73,35 +90,25 @@ export default function PeoplePage() {
   const grouped = useMemo(() => {
     const map = new Map<string, AdminPerson[]>();
     for (const person of filteredPeople) {
-      const key = person.mandal_name ?? "No Mandal";
+      const key = mandalName(person.mandal_id);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(person);
     }
     return Array.from(map.entries());
-  }, [filteredPeople]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredPeople, mandals]);
 
   async function handleAssignDepartment(
     personId: string,
     departmentId: string | null,
-    departmentRole: DepartmentRole
+    departmentRole: MemberRole
   ) {
     if (!deviceToken) return;
-    const { error } = await assignDepartment(deviceToken, personId, departmentId, departmentRole);
-    if (error) {
-      alert(error);
-      return;
+    const { data, error } = await assignDepartment(deviceToken, personId, departmentId, departmentRole);
+    if (data) {
+      setPeople((prev) => prev.map((p) => (p.id === personId ? data : p)));
     }
-    setPeople((prev) =>
-      prev.map((p) =>
-        p.id === personId
-          ? {
-              ...p,
-              department_id: departmentId,
-              department_role: departmentId === null ? "member" : departmentRole,
-            }
-          : p
-      )
-    );
+    if (error) alert(error);
   }
 
   async function handleSetRole(personId: string, role: UserRole) {
@@ -175,17 +182,15 @@ export default function PeoplePage() {
           ))}
         </Select>
 
-        <SearchSelect
-          value={mandalFilter}
-          onChange={setMandalFilter}
-          onSearch={searchMandalOptions}
-          getId={(m) => m.id}
-          getLabel={(m) => m.name}
-          placeholder="All Mandals"
-          clearable
-          clearLabel="All Mandals"
-          onClear={() => setMandalFilter(null)}
-        />
+        <Select value={mandalFilter} onChange={(e) => setMandalFilter(e.target.value)}>
+          <option value="all">All Mandals</option>
+          <option value="none">No Mandal</option>
+          {mandals.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </Select>
       </div>
 
       {filtersActive && (
@@ -194,7 +199,7 @@ export default function PeoplePage() {
           onClick={() => {
             setRoleFilter("all");
             setDepartmentFilter("all");
-            setMandalFilter(null);
+            setMandalFilter("all");
           }}
           className="-mt-4 text-xs font-medium text-saffron-deep"
         >
@@ -229,6 +234,7 @@ export default function PeoplePage() {
                 <motion.div key={person.id} variants={staggerItem}>
                   <PersonRow
                     person={person}
+                    mandalLabel={mandalName(person.mandal_id)}
                     departments={departments}
                     isOpen={openId === person.id}
                     onToggle={() => setOpenId(openId === person.id ? null : person.id)}
@@ -253,6 +259,7 @@ export default function PeoplePage() {
 
 function PersonRow({
   person,
+  mandalLabel,
   departments,
   isOpen,
   onToggle,
@@ -263,17 +270,18 @@ function PersonRow({
   isSelf,
 }: {
   person: AdminPerson;
+  mandalLabel: string;
   departments: Department[];
   isOpen: boolean;
   onToggle: () => void;
-  onAssignDepartment: (id: string, departmentId: string | null, role: DepartmentRole) => void;
+  onAssignDepartment: (id: string, departmentId: string | null, role: MemberRole) => void;
   onSetRole: (id: string, role: UserRole) => void;
   onDelete: (person: AdminPerson) => void;
   canManageAdmins: boolean;
   isSelf: boolean;
 }) {
   const [deptId, setDeptId] = useState(person.department_id ?? "");
-  const [deptRole, setDeptRole] = useState<DepartmentRole>(person.department_role);
+  const [deptRole, setDeptRole] = useState<MemberRole>(person.department_role);
   const pillId = useId();
 
   useEffect(() => {
@@ -299,7 +307,7 @@ function PersonRow({
             )}
           </div>
           <p className="mt-0.5 text-xs text-foreground-muted">
-            {person.contact_number} · {person.mandal_name ?? "No Mandal"}
+            {person.contact_number} · {mandalLabel}
             {person.department_id && (
               <> · {departments.find((d) => d.id === person.department_id)?.name ?? "Department"}</>
             )}
@@ -338,7 +346,7 @@ function PersonRow({
                   <p className="mb-1.5 text-xs font-medium text-foreground-muted">Seva role</p>
                   <Select
                     value={deptRole}
-                    onChange={(e) => setDeptRole(e.target.value as DepartmentRole)}
+                    onChange={(e) => setDeptRole(e.target.value as MemberRole)}
                   >
                     <option value="member">Member</option>
                     <option value="in-charge">In-charge</option>

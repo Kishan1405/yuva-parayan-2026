@@ -18,12 +18,12 @@ const body = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Yuva Sabha",
-  description: "Yuva Sabha — companion app",
+  title: "Yuva Parayan 2026",
+  description: "Yuva Parayan 2026 — event companion app",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Yuva Sabha",
+    title: "Yuva Parayan",
   },
 };
 

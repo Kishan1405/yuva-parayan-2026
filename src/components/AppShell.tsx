@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Home,
+  Images,
   Users,
   HeartHandshake,
   UserRound,
@@ -14,7 +15,6 @@ import {
   Menu,
   ShieldCheck,
   BarChart3,
-  CalendarPlus,
 } from "lucide-react";
 import { EVENT_NAME } from "@/lib/event";
 import { useSession } from "@/lib/session";
@@ -24,7 +24,7 @@ import { Sidebar } from "@/components/Sidebar";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/events", label: "Sabhas", icon: CalendarPlus, adminOnly: true },
+  { href: "/memories", label: "Memories", icon: Images },
   { href: "/departments", label: "Departments", icon: Users, adminOnly: true },
   { href: "/people", label: "People", icon: Contact, adminOnly: true },
   { href: "/analytics", label: "Analytics", icon: BarChart3, adminOnly: true },

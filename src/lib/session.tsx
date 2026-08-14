@@ -8,10 +8,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { login as apiLogin, me as apiMe, signup as apiSignup, updateProfile as apiUpdateProfile } from "./api/auth";
-import type { User } from "./api/types";
+import { supabase } from "./supabase";
+import type { AppUser } from "./database.types";
 
-const STORAGE_KEY = "yuvasabha_auth_token";
+const STORAGE_KEY = "yp2026_device_token";
 
 interface SignUpInput {
   name: string;
@@ -26,8 +26,7 @@ interface LoginInput {
 }
 
 interface SessionContextValue {
-  user: User | null;
-  /** Bearer token for the Laravel API (name kept for the not-yet-migrated pages that already destructure it). */
+  user: AppUser | null;
   deviceToken: string | null;
   loading: boolean;
   signUp: (input: SignUpInput) => Promise<{ error: string | null }>;
@@ -44,13 +43,17 @@ interface SessionContextValue {
 const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadFromToken = useCallback(async (token: string) => {
-    const { data, error } = await apiMe(token);
-    if (error || !data) {
+    const { data, error } = await supabase.rpc("get_user_by_token", {
+      p_device_token: token,
+    });
+    // A "not found" composite comes back as an object with every field
+    // null (not a bare null) — check a required field, not just truthiness.
+    if (error || !data || !data.id) {
       localStorage.removeItem(STORAGE_KEY);
       setUser(null);
       setDeviceToken(null);
@@ -76,50 +79,53 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [loadFromToken]);
 
   const signUp = useCallback(async (input: SignUpInput) => {
-    const { data, error } = await apiSignup({
-      name: input.name.trim(),
-      contact_number: input.contact_number.trim(),
-      mandal_id: input.mandal_id,
+    const { data, error } = await supabase.rpc("signup_user", {
+      p_name: input.name.trim(),
+      p_contact_number: input.contact_number.trim(),
+      p_mandal_id: input.mandal_id,
     });
 
     if (error || !data) {
-      return { error: error ?? "Could not create your account. Please try again." };
+      return { error: error?.message ?? "Could not create your account. Please try again." };
     }
 
-    localStorage.setItem(STORAGE_KEY, data.token);
-    setUser(data.user);
-    setDeviceToken(data.token);
+    localStorage.setItem(STORAGE_KEY, data.device_token);
+    setUser(data);
+    setDeviceToken(data.device_token);
     return { error: null };
   }, []);
 
   const login = useCallback(async (input: LoginInput) => {
-    const { data, error } = await apiLogin({
-      name: input.name.trim(),
-      contact_number: input.contact_number.trim(),
-      pin: input.pin.trim(),
+    const { data, error } = await supabase.rpc("login_with_pin", {
+      p_name: input.name.trim(),
+      p_contact_number: input.contact_number.trim(),
+      p_pin: input.pin.trim(),
     });
 
-    if (error || !data) {
-      return { error: error ?? "Name, contact number, or PIN is incorrect." };
+    // Same "not found" quirk as get_user_by_token — a miss comes back as an
+    // all-null object, not a bare null.
+    if (error || !data || !data.id) {
+      return { error: error?.message ?? "Name, contact number, or PIN is incorrect." };
     }
 
-    localStorage.setItem(STORAGE_KEY, data.token);
-    setUser(data.user);
-    setDeviceToken(data.token);
+    localStorage.setItem(STORAGE_KEY, data.device_token);
+    setUser(data);
+    setDeviceToken(data.device_token);
     return { error: null };
   }, []);
 
   const updateProfile = useCallback(
     async (input: { name: string; contact_number: string; mandal_id: string }) => {
       if (!deviceToken) return { error: "Not signed in." };
-      const { data, error } = await apiUpdateProfile(deviceToken, {
-        name: input.name.trim(),
-        contact_number: input.contact_number.trim(),
-        mandal_id: input.mandal_id,
+      const { data, error } = await supabase.rpc("update_own_profile", {
+        p_device_token: deviceToken,
+        p_name: input.name.trim(),
+        p_contact_number: input.contact_number.trim(),
+        p_mandal_id: input.mandal_id,
       });
 
       if (error || !data) {
-        return { error: error ?? "Could not update your profile." };
+        return { error: error?.message ?? "Could not update your profile." };
       }
       setUser(data);
       return { error: null };

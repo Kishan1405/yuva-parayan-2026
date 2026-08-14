@@ -6,7 +6,7 @@ import { FeedbackSection } from "./FeedbackSection";
 import { WallSection } from "./WallSection";
 
 const TABS = [
-  { value: "feedback", label: "Sabha Feedback" },
+  { value: "feedback", label: "Day Feedback" },
   { value: "wall", label: "Memory Wall" },
 ] as const;
 

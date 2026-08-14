@@ -3,51 +3,53 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Pencil, Users } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
-import { getMandalById, searchMandalOptions } from "@/lib/api/mandals";
-import { listDepartments } from "@/lib/api/departments";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { Label, Input } from "@/components/ui/Field";
-import { SearchSelect } from "@/components/ui/SearchSelect";
+import { Label, Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
-import type { Department, Mandal } from "@/lib/api/types";
+import type { Department, Mandal } from "@/lib/database.types";
 
 export default function ProfilePage() {
   const { user, updateProfile, forgetDevice } = useSession();
-  const [currentMandal, setCurrentMandal] = useState<Mandal | null>(null);
+  const [mandals, setMandals] = useState<Mandal[]>([]);
   const [department, setDepartment] = useState<Department | null>(null);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
   const [contact, setContact] = useState(user?.contact_number ?? "");
-  const [editMandal, setEditMandal] = useState<Mandal | null>(null);
+  const [mandalId, setMandalId] = useState(user?.mandal_id ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user?.mandal_id) {
-      getMandalById(user.mandal_id).then(({ data }) => setCurrentMandal(data));
-    } else {
-      setCurrentMandal(null);
-    }
-  }, [user?.mandal_id]);
+    supabase
+      .from("mandals")
+      .select("*")
+      .order("sort_order")
+      .then(({ data }) => setMandals(data ?? []));
+  }, []);
 
   useEffect(() => {
     if (!user?.department_id) {
       setDepartment(null);
       return;
     }
-    const departmentId = user.department_id;
-    listDepartments().then(({ data }) => {
-      setDepartment(data?.find((d) => d.id === departmentId) ?? null);
-    });
+    supabase
+      .from("departments")
+      .select("*")
+      .eq("id", user.department_id)
+      .maybeSingle()
+      .then(({ data }) => setDepartment(data));
   }, [user?.department_id]);
 
   if (!user) return null;
 
+  const currentMandal = mandals.find((m) => m.id === user.mandal_id);
+
   function startEditing() {
     setName(user!.name);
     setContact(user!.contact_number);
-    setEditMandal(currentMandal);
+    setMandalId(user!.mandal_id ?? "");
     setError(null);
     setEditing(true);
   }
@@ -62,15 +64,11 @@ export default function ProfilePage() {
       setError("Please enter a valid 10-digit contact number.");
       return;
     }
-    if (!editMandal) {
-      setError("Please select your Mandal.");
-      return;
-    }
     setSaving(true);
     const { error: saveError } = await updateProfile({
       name: name.trim(),
       contact_number: contact.trim(),
-      mandal_id: editMandal.id,
+      mandal_id: mandalId,
     });
     setSaving(false);
     if (saveError) setError(saveError);
@@ -141,14 +139,13 @@ export default function ProfilePage() {
               </div>
               <div>
                 <Label>Mandal</Label>
-                <SearchSelect
-                  value={editMandal}
-                  onChange={setEditMandal}
-                  onSearch={searchMandalOptions}
-                  getId={(m) => m.id}
-                  getLabel={(m) => m.name}
-                  placeholder="Search for your Mandal…"
-                />
+                <Select value={mandalId} onChange={(e) => setMandalId(e.target.value)}>
+                  {mandals.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </Select>
               </div>
 
               {error && <p className="text-sm text-red-500">{error}</p>}

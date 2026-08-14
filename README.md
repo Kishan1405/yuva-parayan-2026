@@ -1,16 +1,7 @@
-# Yuva Sabha — Companion App
+# Yuva Parayan 2026 — Event Companion App
 
-Mobile-first web app for Yuva Sabha, built to serve all Mandals on an ongoing
-basis (not a single one-off event). Built with Next.js (App Router) +
-Tailwind CSS, talking to a Laravel-shaped REST API — see
-[`docs/api-contract.md`](docs/api-contract.md). No Supabase involved
-anymore; the `supabase/` folder is kept only as a historical reference for
-the original schema design, nothing in the app reads from it.
-
-The attendance day model (`src/lib/event.ts`'s `EVENT_DAYS`, currently three
-hardcoded Aug 2026 dates) still reflects the original single-event design and
-needs a real decision on how a permanent, multi-Mandal Yuva Sabha should
-represent event days/dates before that changes.
+Mobile-first web app for Yuva Parayan 2026 (6–8 August 2026). Built with Next.js
+(App Router) + Tailwind CSS + Supabase.
 
 Everyone signs up with name, contact number, and Mandal. There's no password —
 the browser holds a private device token that identifies the account (see
@@ -19,16 +10,14 @@ the browser holds a private device token that identifies the account (see
 ## Modules (user side, phase 1)
 
 - **Onboarding** — signup (name, contact, Mandal)
-- **Home** — greeting, live-Sabha status (if one's been launched), quick
-  links, "your seva" card
-- **Departments** — Sangeet, Sabha Vyavastha, Parayan Pujan, Prasad, and 11
-  more — in-charge list, members, task checklist
-- **Reflect** — one feedback card scoped to whichever Sabha is currently
-  live (unlocks when it starts) + a shared public wall for memories/values
-  gained
+- **Home** — greeting, event countdown/day, quick links, "your seva" card
+- **Departments** — Sangeet, Sabha Vyavastha, Parayan Pujan, Prasad — in-charge
+  list, members, task checklist
+- **Reflect** — per-day feedback form (unlocks on that day) + a shared public
+  wall for memories/values gained
+- **Past Memories** — photo gallery pulled live from a Google Drive folder
 - **Profile** — view/edit your own details, admin panel entry point (if applicable)
-- **Attendance** — a personal QR code scoped to whichever Sabha is currently
-  live, plus your check-in history
+- **Attendance** — a personal QR code, plus your own per-day check-in status
 
 ## Modules (admin side, phase 2)
 
@@ -36,54 +25,76 @@ Only visible/usable to accounts with an elevated `role` (see "How admin
 access works" below) — never shown for plain `user` accounts, regardless of
 Mandal or department assignment.
 
-- **Sabhas** (`/events`, own nav tab) — visible to `admin` and `super_admin`
-  only. Schedule a Sabha for a future date/time (or launch one immediately) —
-  it goes live on its own once its time arrives, no need to be watching the
-  clock. Upcoming (cancellable) and past lists.
 - **Scan** (`/scan`, own bottom-nav tab) — visible to `scanner`, `admin`, and
-  `super_admin`. `admin`/`super_admin` can also launch/end a Sabha right from
-  here for the spontaneous case. While a Sabha is live: camera-based QR
-  scanner up top (records a check-in against the scanned person's account,
-  scoped to that Sabha), and the live Attendee Logs below it — a running
-  count, a Mandal filter, and a search bar that finds anyone in the system
-  (checked in or not), auto-refreshing every second.
+  `super_admin`. One page: camera-based QR scanner up top (per-day, records a
+  check-in against the scanned person's account), and the live Attendee Logs
+  below it — per-day counts, a Mandal filter, and a search bar that finds
+  anyone in the system (checked in or not), auto-refreshing every second.
 - **People** (`/people`, own nav tab) — visible to `admin` and `super_admin`
   only. Search everyone by name or contact number, grouped by Mandal (Mandal
   shown on every result too); assign/remove someone's department + seva role
   (member/in-charge); `super_admin` can also set anyone's access level
   (user/scanner/admin/super_admin).
 - **Analytics** (`/analytics`, own nav tab) — visible to `admin` and
-  `super_admin` only. Attendance per Sabha (bar chart), attendance by Mandal
-  for a selected Sabha, people by Mandal (donut), people by department (bar
-  chart), and role counts.
+  `super_admin` only. Daily attendance (bar chart), attendance by Mandal
+  (bar chart with a Day 1/2/3 toggle), people by Mandal (donut), people by
+  department (bar chart), and role counts — all pulled from one
+  pre-aggregated `admin_analytics()` RPC so the page stays fast on a slow
+  connection.
 
-Editing the department/task list, feedback question set, and Mandal list
-themselves still happens directly in backend seed data (`src/lib/api/mockData.ts`
-for the mock; whatever the Laravel equivalent ends up being) — not built
-into an admin UI yet.
-
-## Backend (Laravel API, mock included)
-
-Every module talks to a Laravel-shaped REST API — see
-[`docs/api-contract.md`](docs/api-contract.md) for the full spec.
-`NEXT_PUBLIC_API_URL` unset (the default) runs entirely against an
-in-memory mock (`src/lib/api/mockAdapter.ts`), so the frontend works fully
-standalone with **no backend running at all** — it seeds ~150 Mandals, all
-15 departments, a live Sabha, and a few test logins (see the comment at the
-top of `src/lib/api/mockData.ts`). Once a real Laravel server implements
-the contract, point `NEXT_PUBLIC_API_URL` at it and nothing else changes.
+Editing departments/tasks/feedback questions/Mandals themselves still happens
+directly in the Supabase table editor — not built into the admin UI yet.
 
 ## One-time setup
+
+### 1. Supabase (accounts, departments, feedback, wall)
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Open the SQL editor and run [`supabase/schema.sql`](supabase/schema.sql) —
+   this creates all tables, RLS policies, seed data (3 placeholder Mandals,
+   the 4 departments, 5 placeholder feedback questions), the roles/attendance
+   schema, and the admin functions.
+   - Already ran phase 1's `schema.sql` on an existing project? Run
+     [`supabase/migration_002_admin_attendance.sql`](supabase/migration_002_admin_attendance.sql)
+     instead — it adds only what's new.
+3. In **Project Settings → API**, copy the **Project URL** and **anon public
+   key** (also called "Publishable key" in newer Supabase projects).
+4. Copy `.env.local.example` to `.env.local` and paste them in:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=...
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+   ```
+5. Once you have the real 3 Mandal names, update the `mandals` table rows
+   (Table Editor → mandals) — no redeploy needed.
+
+### 2. Google Drive (Past Memories gallery)
+
+1. In [Google Cloud Console](https://console.cloud.google.com), create a
+   project (or reuse one), enable the **Google Drive API**, and create an
+   **API key** (Credentials → Create Credentials → API key). You can restrict
+   it to the Drive API for safety.
+2. For every Drive folder with event photos, share it as **"Anyone with the
+   link can view"** — this is required for the API key (no OAuth) to list
+   its contents.
+3. Get each folder's ID from its URL:
+   `https://drive.google.com/drive/folders/`**`THIS_PART`**
+4. Add both to `.env.local` — `GOOGLE_DRIVE_FOLDER_IDS` is comma-separated,
+   so multiple folders (different years/albums) all show up in one gallery:
+   ```
+   GOOGLE_DRIVE_API_KEY=...
+   GOOGLE_DRIVE_FOLDER_IDS=folder-id-one,folder-id-two
+   ```
+
+### 3. Run it
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). That's it — no
-external services to configure for local frontend development; everything
-runs against the built-in mock. Point `NEXT_PUBLIC_API_URL` (see
-`.env.local.example`) at a real Laravel server once one exists.
+Open [http://localhost:3000](http://localhost:3000). Without the env vars
+above, the app still runs — signup will show "Loading Mandals…" and Memories
+will show a setup message, since there's no data source yet.
 
 ## How login works (by design)
 
@@ -96,14 +107,15 @@ simplicity; a real login system (OTP/PIN) can replace it later if needed.
 ## How admin access works (by design)
 
 Same idea as attendee login — no separate admin login page, no extra
-password. Every account has a `role` (`user` / `scanner` / `admin` /
-`super_admin`). The catch: a regular attendee's browser can't just claim
-`admin` for itself — every privileged action (viewing the full contact
-list, assigning departments, changing anyone's role, marking attendance)
-re-checks the caller's actual role **server-side** against their bearer
-token before doing anything; the frontend's own role checks are UX only.
-See the Roles section of [`docs/api-contract.md`](docs/api-contract.md) for
-the enforcement contract every endpoint has to follow.
+password. Every account has a `role` column (`user` / `scanner` / `admin` /
+`super_admin`). The catch: a regular attendee's browser can't just set its
+own `role` to `admin` via devtools, because the `users` table has **zero**
+direct read/write access for the public client — every privileged action
+(viewing the full contact list, assigning departments, changing anyone's
+role, marking attendance) goes through a Postgres function that re-checks
+the caller's actual role, server-side, before doing anything. See the
+comments at the top of `supabase/migration_002_admin_attendance.sql` for the
+full design rationale.
 
 - `user` — everyone, by default
 - `scanner` — can only scan attendance (`/scan`), nothing else
@@ -111,10 +123,16 @@ the enforcement contract every endpoint has to follow.
 - `super_admin` — admin + can grant/revoke anyone's role (including other
   admins), from the People page in the app
 
-**Bootstrapping the first admin** on a real backend (nobody has admin
-rights yet on a fresh install) is a backend-side concern — however the
-Laravel side chooses to seed/promote one. The mock sidesteps this
-entirely: `src/lib/api/mockData.ts` pre-seeds a `super_admin` test account
-(see the login at the top of that file), so there's always at least one
-admin to test with locally. Every admin promotion after that happens from
-the People page in the app.
+**Bootstrapping the first admin** is the one piece that still needs raw SQL,
+since nobody has admin rights yet on a fresh project — see the commented-out
+`update users set role = 'super_admin' where contact_number = '...'` line at
+the bottom of the migration file. Run it once, with your own number, after
+you've signed up in the app. Every admin promotion after that happens from
+the People page — no more SQL needed.
+
+## Deploying
+
+Push to a Git repo and deploy on [Vercel](https://vercel.com/new) — add the
+same env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`GOOGLE_DRIVE_API_KEY`, `GOOGLE_DRIVE_FOLDER_IDS`) in the Vercel project
+settings.

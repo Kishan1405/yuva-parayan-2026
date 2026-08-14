@@ -1,4 +1,4 @@
-export const EVENT_NAME = "Yuva Sabha";
+export const EVENT_NAME = "Yuva Parayan 2026";
 
 export interface EventDay {
   day: 1 | 2 | 3;

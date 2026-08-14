@@ -3,32 +3,27 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Users, HeartHandshake, UserRound, MapPin, QrCode, ShieldCheck, CalendarClock } from "lucide-react";
+import { Images, Users, HeartHandshake, UserRound, MapPin, QrCode, ShieldCheck } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
-import { EVENT_NAME } from "@/lib/event";
-import { getActiveEvent } from "@/lib/api/events";
-import { getMandalById } from "@/lib/api/mandals";
-import { listDepartments } from "@/lib/api/departments";
+import {
+  EVENT_NAME,
+  EVENT_DAYS,
+  eventPhase,
+  daysUntilStart,
+  currentEventDay,
+} from "@/lib/event";
 import { GlassCard, staggerContainer, staggerItem } from "@/components/ui/GlassCard";
 import { canManagePeople } from "@/lib/admin";
-import type { Department, Event, Mandal } from "@/lib/api/types";
+import type { Department, Mandal } from "@/lib/database.types";
 
 const QUICK_LINKS = [
   { href: "/attendance", label: "Attendance", icon: QrCode, blurb: "Your check-in QR code" },
+  { href: "/memories", label: "Past Memories", icon: Images, blurb: "Relive past gatherings" },
   { href: "/departments", label: "Departments", icon: Users, blurb: "Sangeet, Prasad & more", adminOnly: true },
   { href: "/reflect", label: "Reflect", icon: HeartHandshake, blurb: "Feedback & memory wall" },
   { href: "/profile", label: "Profile", icon: UserRound, blurb: "Your details" },
 ];
-
-function formatEventTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 export default function HomePage() {
   const { user } = useSession();
@@ -36,25 +31,29 @@ export default function HomePage() {
   const quickLinks = QUICK_LINKS.filter((l) => !l.adminOnly || canBrowseDepartments);
   const [mandal, setMandal] = useState<Mandal | null>(null);
   const [department, setDepartment] = useState<Department | null>(null);
-  const [activeEvent, setActiveEvent] = useState<Event | null | undefined>(undefined);
 
   useEffect(() => {
     if (!user) return;
     if (user.mandal_id) {
-      getMandalById(user.mandal_id).then(({ data }) => setMandal(data));
+      supabase
+        .from("mandals")
+        .select("*")
+        .eq("id", user.mandal_id)
+        .maybeSingle()
+        .then(({ data }) => setMandal(data));
     }
     if (user.department_id) {
-      const departmentId = user.department_id;
-      listDepartments().then(({ data }) => {
-        setDepartment(data?.find((d) => d.id === departmentId) ?? null);
-      });
+      supabase
+        .from("departments")
+        .select("*")
+        .eq("id", user.department_id)
+        .maybeSingle()
+        .then(({ data }) => setDepartment(data));
     }
   }, [user]);
 
-  useEffect(() => {
-    getActiveEvent().then(({ data }) => setActiveEvent(data));
-  }, []);
-
+  const phase = eventPhase();
+  const today = currentEventDay();
   const firstName = user?.name.trim().split(" ")[0] ?? "";
 
   return (
@@ -84,39 +83,35 @@ export default function HomePage() {
         </div>
       </motion.div>
 
-      <Link href="/attendance">
-        <GlassCard strong interactive variants={staggerItem} className="relative overflow-hidden">
-          <div className="relative z-10">
-            <p className="text-xs font-semibold uppercase tracking-wide text-saffron-deep">
-              {EVENT_NAME}
+      <GlassCard strong variants={staggerItem} className="relative overflow-hidden">
+        <div className="relative z-10">
+          <p className="text-xs font-semibold uppercase tracking-wide text-saffron-deep">
+            {EVENT_NAME}
+          </p>
+          <p className="mt-1 font-display text-xl font-semibold">6–8 August 2026</p>
+
+          {phase === "upcoming" && (
+            <p className="mt-2 text-sm text-foreground-muted">
+              {daysUntilStart()} day{daysUntilStart() === 1 ? "" : "s"} to go
             </p>
+          )}
+          {phase === "live" && today && (
+            <p className="mt-2 text-sm font-medium text-saffron-deep">{today.label} · Today</p>
+          )}
+          {phase === "ended" && (
+            <p className="mt-2 text-sm text-foreground-muted">
+              Thank you for being part of {EVENT_NAME} 🙏
+            </p>
+          )}
 
-            {activeEvent && (
-              <>
-                <p className="mt-1 font-display text-xl font-semibold">{activeEvent.title}</p>
-                <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-saffron-deep">
-                  <span className="flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-saffron-deep" />
-                  Live now · {formatEventTime(activeEvent.scheduled_at)}
-                </p>
-              </>
-            )}
-
-            {activeEvent === null && (
-              <div className="mt-1 flex items-center gap-2 text-sm text-foreground-muted">
-                <CalendarClock size={16} />
-                No Sabha scheduled right now — check back Sunday.
-              </div>
-            )}
-
-            {mandal && (
-              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-saffron-deep/10 px-3 py-1 text-xs font-medium text-saffron-deep">
-                <MapPin size={13} />
-                {mandal.name}
-              </div>
-            )}
-          </div>
-        </GlassCard>
-      </Link>
+          {mandal && (
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-saffron-deep/10 px-3 py-1 text-xs font-medium text-saffron-deep">
+              <MapPin size={13} />
+              {mandal.name}
+            </div>
+          )}
+        </div>
+      </GlassCard>
 
       {department &&
         (canBrowseDepartments ? (
@@ -167,6 +162,27 @@ export default function HomePage() {
               </Link>
             )
           )}
+        </div>
+      </motion.div>
+
+      <motion.div variants={staggerItem}>
+        <h2 className="mb-3 font-display text-base font-semibold">Schedule</h2>
+        <div className="space-y-4">
+          {EVENT_DAYS.map((d) => (
+            <GlassCard
+              key={d.day}
+              className={`flex items-center justify-between py-3 ${
+                today?.day === d.day ? "ring-2 ring-saffron-deep/40" : ""
+              }`}
+            >
+              <span className="text-sm font-medium">{d.label}</span>
+              {today?.day === d.day && (
+                <span className="rounded-full bg-saffron-deep/15 px-2.5 py-1 text-[11px] font-semibold text-saffron-deep">
+                  Today
+                </span>
+              )}
+            </GlassCard>
+          ))}
         </div>
       </motion.div>
     </motion.div>

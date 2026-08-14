@@ -4,8 +4,8 @@ import { EVENT_NAME } from "@/lib/event";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: EVENT_NAME,
-    short_name: "Yuva Sabha",
-    description: "Yuva Sabha — companion app",
+    short_name: "Yuva Parayan",
+    description: "Yuva Parayan 2026 — event companion app",
     start_url: "/",
     scope: "/",
     display: "standalone",
